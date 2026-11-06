@@ -1,0 +1,33 @@
+3. Cart-pole: DeLaN with MPPI swing-up ★★★☆☆ (recommended)
+Project title: Deep Lagrangian Networks for Model-Predictive Swing-Up of an Underactuated Cart-Pole
+System: cartpole / swingup. Cart position x and pole angle θ. Only the cart is actuated, with gear 10.
+Physics-informed approach: DeLaN. A Cholesky network gives M(q) = LLᵀ + εI, which is positive-definite by construction. A separate network gives the potential V(q), Coriolis terms come from autograd, and damping is learned.
+Closed-loop task: MPPI swing-up and balance. The same controller runs with all three models.
+Network learns: forward dynamics. DeLaN also gives inverse dynamics and energy.
+Inputs → outputs: (x, sin θ, cos θ, ẋ, θ̇, τ) → (ẍ, θ̈), plus M(q), V(q) and the system energy.
+Measures of success:
+One-step error.
+Rollout RMSE at 0.5, 1 and 2 s.
+Energy drift over 10 s of unforced, undamped motion.
+Data efficiency with 1, 5 and 20 episodes.
+Error in the out-of-range upright region.
+Swing-up success rate over 20 seeds, time-to-balance, and cart staying within the rail.
+Problem statement: Learn the forward dynamics of the underactuated cart-pole with a Deep Lagrangian Network that guarantees a positive-definite inertia matrix and energy-consistent dynamics. Compare it with a black-box MLP and the analytical model on multi-step prediction, energy conservation and closed-loop MPPI swing-up.
+
+How it works. DeLaN learns the Lagrangian L = ½ q̇ᵀM(q)q̇ − V(q) and computes everything else analytically:
+
+Gravity: g = ∂V/∂q
+Coriolis: Cq̇ = Ṁq̇ − ½ ∂(q̇ᵀMq̇)/∂q, both terms via autograd
+Forward dynamics: q̈ = M⁻¹(τ − Cq̇ − g − Dq̇)
+
+Underactuation is handled for free, because the recorded qfrc_actuator is already [10u, 0].
+
+MPPI samples a few hundred action sequences, rolls each out through the model in a batched PyTorch call, and weights them by cost. It needs only a forward model, so comparing all three models is perfectly fair.
+
+Key insight. Random actions keep the pole hanging, so upright states are missing from the data. Collect a second dataset with an energy-pumping heuristic plus noise, and hold part of it out as the out-of-range test. Then show that DeLaN’s energy structure extrapolates better there.
+
+For the drift test, set model.dof_damping[:] = 0 and enable MuJoCo’s energy flag to get the ground-truth energy.
+
+Why it’s presentable. Side-by-side swing-up videos for the three models, energy-drift plots, and a clean story about where structure helps.
+
+Risks. MPPI tuning takes about a day. The compute cost is fine if rollouts are vectorised.
