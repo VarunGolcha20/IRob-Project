@@ -19,6 +19,8 @@ If ROS is sourced in the shell, run commands with `env -u PYTHONPATH ...`. Other
 | phase | command | outputs |
 |---|---|---|
 | 1. Analytical model vs MuJoCo | `python scripts/p1_validate.py` | `results/p1_validation.json`, `figures/p1_residuals.*`, `figures/p1_rk4_vs_mujoco.*` |
+| 2. Datasets (R, E, U pools) | `python scripts/p2_collect.py` | `data/*.npz`, `results/p2_dataset.json`, `figures/p2_coverage.*` |
+| known issues / risks | see [docs/ISSUES.md](docs/ISSUES.md) | — |
 | tests | `pytest -q tests/` | — |
 
 ## Layout

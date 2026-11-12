@@ -1,0 +1,210 @@
+{
+  "splits": {
+    "R_train": {
+      "n_episodes": 20,
+      "n_rows": 20000,
+      "limit_frac": 0.0415,
+      "max_abs_x": 1.8617997749322508,
+      "max_abs_xd": 2.3841629502691224,
+      "max_abs_phi_from_hanging": 1.3399383590718212,
+      "max_abs_thd": 5.291712923553994,
+      "max_cos_theta": -0.22881281386455432,
+      "frac_above_horizontal": 0.0,
+      "qdd_std": [
+        5.820136329621671,
+        9.618582625971376
+      ],
+      "qdd_max_abs": [
+        49.39919676691134,
+        62.995388974864625
+      ],
+      "u_saturated_frac": 0.0007,
+      "net_turns_max": 0.21130913801401177
+    },
+    "R_val": {
+      "n_episodes": 5,
+      "n_rows": 5000,
+      "limit_frac": 0.0484,
+      "max_abs_x": 1.8591678891233576,
+      "max_abs_xd": 1.987649078173472,
+      "max_abs_phi_from_hanging": 1.4621299344434122,
+      "max_abs_thd": 5.265552463971643,
+      "max_cos_theta": -0.10845265615471399,
+      "frac_above_horizontal": 0.0,
+      "qdd_std": [
+        5.803490496274367,
+        9.761119381470674
+      ],
+      "qdd_max_abs": [
+        46.83086988662175,
+        69.22641315287332
+      ],
+      "u_saturated_frac": 0.0008,
+      "net_turns_max": 0.20278366362726338
+    },
+    "R_test": {
+      "n_episodes": 10,
+      "n_rows": 10000,
+      "limit_frac": 0.0454,
+      "max_abs_x": 1.8642143809317098,
+      "max_abs_xd": 2.4760662047295736,
+      "max_abs_phi_from_hanging": 1.0960257605446526,
+      "max_abs_thd": 4.21357113301644,
+      "max_cos_theta": -0.45713440137988015,
+      "frac_above_horizontal": 0.0,
+      "qdd_std": [
+        5.776242782158761,
+        9.476425018770055
+      ],
+      "qdd_max_abs": [
+        50.35715428460237,
+        73.92555118395957
+      ],
+      "u_saturated_frac": 0.0012,
+      "net_turns_max": 0.15460176790469582
+    },
+    "E_train": {
+      "n_episodes": 20,
+      "n_rows": 20000,
+      "limit_frac": 0.00605,
+      "max_abs_x": 1.8880334406066424,
+      "max_abs_xd": 4.033449618865206,
+      "max_abs_phi_from_hanging": 3.1414256728040635,
+      "max_abs_thd": 8.398751206640112,
+      "max_cos_theta": 0.9999999860587087,
+      "frac_above_horizontal": 0.3895,
+      "qdd_std": [
+        4.054397684157538,
+        11.479696439908277
+      ],
+      "qdd_max_abs": [
+        70.25274535787916,
+        45.53433047847186
+      ],
+      "u_saturated_frac": 0.0774,
+      "net_turns_max": 3.177639745092889
+    },
+    "E_val": {
+      "n_episodes": 5,
+      "n_rows": 5000,
+      "limit_frac": 0.0,
+      "max_abs_x": 1.5737006925401003,
+      "max_abs_xd": 3.456869835008555,
+      "max_abs_phi_from_hanging": 2.871155326941276,
+      "max_abs_thd": 7.701980774431602,
+      "max_cos_theta": 0.9636541554415416,
+      "frac_above_horizontal": 0.2882,
+      "qdd_std": [
+        3.6844327588014996,
+        11.892640613652999
+      ],
+      "qdd_max_abs": [
+        10.866085794585409,
+        20.983365730432947
+      ],
+      "u_saturated_frac": 0.0462,
+      "net_turns_max": 0.3480770097862953
+    },
+    "E_test": {
+      "n_episodes": 10,
+      "n_rows": 10000,
+      "limit_frac": 0.0032,
+      "max_abs_x": 1.8418117478474765,
+      "max_abs_xd": 3.913567175977084,
+      "max_abs_phi_from_hanging": 3.1413755182577234,
+      "max_abs_thd": 8.445305926967286,
+      "max_cos_theta": 0.9999999764261239,
+      "frac_above_horizontal": 0.3596,
+      "qdd_std": [
+        4.014413927734446,
+        11.444302316075666
+      ],
+      "qdd_max_abs": [
+        35.86707666475558,
+        35.381213830550884
+      ],
+      "u_saturated_frac": 0.0776,
+      "net_turns_max": 4.205830486795732
+    }
+  },
+  "U": {
+    "small": {
+      "n": 10,
+      "limit_ever_active": false,
+      "max_abs_x": 0.03958267985112161,
+      "internal_energy_over_mgl": [
+        0.07302717806243304,
+        0.06867389936180235,
+        0.058656357687552146,
+        0.015162822642070875,
+        0.11008420178727397,
+        0.0083142956029092,
+        0.11485620854720414,
+        0.020384947978267384,
+        0.058673913513105316,
+        0.04845690734798564
+      ],
+      "mujoco_max_drift_over_mgl": 5.105542899767596e-09
+    },
+    "large": {
+      "n": 10,
+      "limit_ever_active": false,
+      "max_abs_x": 0.09090830547538947,
+      "internal_energy_over_mgl": [
+        1.9263681579943814,
+        0.9158566840121547,
+        1.0058763865530538,
+        0.8514453709399752,
+        1.6192850152510387,
+        0.6576990230057947,
+        0.5232583449418398,
+        1.2824161511483079,
+        1.5004310847990827,
+        0.5961054418099583
+      ],
+      "mujoco_max_drift_over_mgl": 8.50569160918896e-08
+    },
+    "rotating": {
+      "n": 10,
+      "limit_ever_active": false,
+      "max_abs_x": 0.045455539376675805,
+      "internal_energy_over_mgl": [
+        2.894340418371094,
+        3.6549492295456685,
+        3.0750209447172914,
+        2.591991294270928,
+        3.2387290231439785,
+        2.5945640539732544,
+        2.7648465962151243,
+        2.5841048939908893,
+        3.910016057999398,
+        2.70589658924952
+      ],
+      "mujoco_max_drift_over_mgl": 1.0767023526015641e-06
+    }
+  },
+  "oor": {
+    "R_train_max_cos_theta": -0.22881281386455432,
+    "R_train_max_abs_thd": 5.291712923553994,
+    "definition_angle": "cos(theta) > 0 (pole above horizontal)",
+    "definition_velocity": "cos(theta) < -0.8 and |thd| > R_train max |thd|",
+    "E_test_rows": 10000,
+    "E_test_oor_angle_rows": 3596,
+    "E_test_oor_velocity_rows": 1046,
+    "E_test_in_R_support_rows": 3677
+  },
+  "random_walk": {
+    "J_eff0": 0.032151865494568325,
+    "beta": 1.4137451981510827,
+    "force_variance": 33.333333333333336,
+    "n_episodes": 35,
+    "predicted_rate_J_per_s": 0.01071019089508396,
+    "measured_rate_J_per_s": 0.014940755895079282,
+    "measured_rate_before_first_rail_contact_J_per_s": 0.01035842375036193,
+    "rail_contact_time_s_median": 4.29,
+    "predicted_time_to_upright_energy_s": 91.59500606569813,
+    "predicted_energy_at_10s_over_upright": 0.10917625784998938,
+    "measured_mean_energy_at_10s_over_upright": 0.174062018787234,
+    "R_train_frac_time_pinned_at_rail": 0.0436
+  }
+}
