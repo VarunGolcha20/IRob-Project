@@ -3,10 +3,11 @@
 Pools (split by episode, never by row):
   R  random     u ~ U[-1,1] iid per step          train 20 / val 5 / test 10
   E  pumping    energy pumping + OU noise         train 20 / val 5 / test 10
-  U  unforced   u = 0, dof_damping = 0, 30 initial states (energy-drift ground truth)
+  S  balance    LQR about upright + OU noise      train 10 / val 3 / test 5
+  U  unforced   u = 0, dof_damping = 0, 40 initial states (energy-drift ground truth)
 
 Usage:  python scripts/p2_collect.py
-Outputs: data/{R,E}_{train,val,test}.npz, data/U.npz,
+Outputs: data/{R,E,S}_{train,val,test}.npz, data/U.npz,
          results/p2_dataset.json, figures/p2_coverage.*
 """
 from __future__ import annotations
@@ -20,8 +21,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import numpy as np  # noqa: E402
 
-from cartpole.data import (EnergyPumpingPolicy, flatten, random_policy, run_episode,  # noqa: E402
-                           save_episodes, undamped_hook, unforced_initial_states)
+from cartpole.data import (EnergyPumpingPolicy, LQRBalancePolicy, balance_initial_state,  # noqa: E402
+                           flatten, in_support, random_policy, run_episode, save_episodes, state_hook,
+                           undamped_hook, unforced_initial_states)
 from cartpole.integrators import wrap_angle  # noqa: E402
 from cartpole.params import load_params, make_env  # noqa: E402
 from cartpole.plotting import DATA_DIR, RES_DIR, savefig, setup_style  # noqa: E402
@@ -33,7 +35,11 @@ SPLITS = {
     "E_train": ("pumping", range(300, 320)),
     "E_val": ("pumping", range(400, 405)),
     "E_test": ("pumping", range(500, 510)),
+    "S_train": ("balance", range(700, 710)),
+    "S_val": ("balance", range(800, 803)),
+    "S_test": ("balance", range(900, 905)),
 }
+U_GROUPS = ("small", "large", "rotating", "fast_rotating")
 U_SEED = 600
 COS_HANGING = -0.8   # "hanging" for the OOR-velocity set: within 36.9 deg of straight down
 
@@ -43,8 +49,11 @@ def split_stats(eps, p):
     th, thd = d["q"][:, 1], d["qd"][:, 1]
     phi = wrap_angle(th - np.pi)
     rot = [abs(e["qpos"][-1, 1] - e["qpos"][0, 1]) / (2 * np.pi) for e in eps]
+    th_up = wrap_angle(th)
     return dict(
         n_episodes=len(eps), n_rows=int(len(th)),
+        n_rows_limit_free=int((~d["limit_active"]).sum()),
+        balance_region_rows=int(((np.abs(th_up) < 0.2) & (np.abs(thd) < 1.0)).sum()),
         limit_frac=float(d["limit_active"].mean()),
         max_abs_x=float(np.abs(d["q"][:, 0]).max()),
         max_abs_xd=float(np.abs(d["qd"][:, 0]).max()),
@@ -79,21 +88,32 @@ def main():
     all_eps = {}
     t0 = time.time()
 
-    # ---- R and E pools ---------------------------------------------------
+    # ---- R, E and S pools ------------------------------------------------
     for name, (kind, seeds) in SPLITS.items():
-        eps, erefs = [], []
+        eps, extra = [], []
         for s in seeds:
             env = make_env(seed=s)
+            hook = None
             if kind == "random":
                 pol = random_policy(s)
-            else:
+            elif kind == "pumping":
                 pol = EnergyPumpingPolicy(p, s)
-            eps.append(run_episode(env, pol))
+            else:
+                pol = LQRBalancePolicy(p, s)
+                hook = state_hook(*balance_initial_state(s))
+            eps.append(run_episode(env, pol, physics_hook=hook))
             if kind == "pumping":
-                erefs.append(pol.E_refs)
+                extra.append(pol.E_refs)
+            elif kind == "balance":
+                extra.append(pol.sigma)
         meta = dict(pool=kind, seeds=list(seeds))
-        if erefs:
-            meta["E_ref_over_mgl"] = np.array(erefs)
+        if kind == "pumping":
+            meta["E_ref_over_mgl"] = np.array(extra)
+        elif kind == "balance":
+            meta["ou_sigma"] = np.array(extra)
+            meta["lqr_K"] = pol.K
+            res["lqr"] = dict(K=pol.K.tolist(), bryson_max=[1.0, 0.3, 2.0, 2.0],
+                              closed_loop_eigs=[[float(e.real), float(e.imag)] for e in pol.closed_loop_eigs])
         save_episodes(DATA_DIR / f"{name}.npz", eps, meta)
         all_eps[name] = eps
         res["splits"][name] = split_stats(eps, p)
@@ -109,7 +129,7 @@ def main():
         groups.append(st["group"])
     save_episodes(DATA_DIR / "U.npz", u_eps, dict(pool="unforced_undamped", groups=np.array(groups)))
     u_stats = {}
-    for g in ("small", "large", "rotating"):
+    for g in U_GROUPS:
         sel = [e for e, gg in zip(u_eps, groups) if gg == g]
         H = [e["energy"].sum(-1) for e in sel]
         u_stats[g] = dict(
@@ -125,18 +145,56 @@ def main():
     R = flatten(all_eps["R_train"])
     cos_max_R = float(np.cos(R["q"][:, 1]).max())
     thd_max_R = float(np.abs(R["qd"][:, 1]).max())
+    # ISSUES D1: the max-based boundary is set by rare rail-impact rows. Also
+    # report the 99th percentile and the extremes before the first rail contact.
+    first_R = [np.argmax(e["limit_active"]) if e["limit_active"].any() else len(e["u"])
+               for e in all_eps["R_train"]]
+    pre_q = np.concatenate([e["qpos"][:f] for e, f in zip(all_eps["R_train"], first_R)])
+    pre_qd = np.concatenate([e["qvel"][:f] for e, f in zip(all_eps["R_train"], first_R)])
+    support = dict(
+        max=dict(cos_theta=cos_max_R, abs_thd=thd_max_R),
+        p99=dict(cos_theta=float(np.percentile(np.cos(R["q"][:, 1]), 99)),
+                 abs_thd=float(np.percentile(np.abs(R["qd"][:, 1]), 99))),
+        before_first_rail_contact_max=dict(cos_theta=float(np.cos(pre_q[:, 1]).max()),
+                                           abs_thd=float(np.abs(pre_qd[:, 1]).max())),
+        R_train_episodes_with_rail_contact=int(sum(f < 1000 for f in first_R)),
+    )
+    res["R_support"] = support
+
+    # Which training regimes cover each energy-drift group (ISSUES D5), using
+    # the density-based support (>= 5 training rows per (theta, thd) bin).
+    regA = flatten(all_eps["R_train"], drop_limit=True)
+    regB = flatten(all_eps["R_train"] + all_eps["E_train"] + all_eps["S_train"], drop_limit=True)
+    for g in U_GROUPS:
+        sel = [e for e, gg in zip(u_eps, groups) if gg == g]
+        qq = np.concatenate([e["qpos"] for e in sel])
+        vv = np.concatenate([e["qvel"] for e in sel])
+        res["U"][g]["frac_rows_in_support_regime_A"] = float(in_support(regA["q"], regA["qd"], qq, vv).mean())
+        res["U"][g]["frac_rows_in_support_regime_B"] = float(in_support(regB["q"], regB["qd"], qq, vv).mean())
     Et = flatten(all_eps["E_test"])
     free = ~Et["limit_active"]
     c, w = np.cos(Et["q"][:, 1]), np.abs(Et["qd"][:, 1])
     oor_angle = (c > 0) & free
     oor_vel = (c < COS_HANGING) & (w > thd_max_R) & free
-    in_support = (c <= cos_max_R) & (w <= thd_max_R) & free
+    in_R_box = (c <= cos_max_R) & (w <= thd_max_R) & free
+    cos99, thd99 = support["p99"]["cos_theta"], support["p99"]["abs_thd"]
+    dens = in_support(regA["q"], regA["qd"], Et["q"], Et["qd"])
+    res["oor_density_support_regime_A"] = dict(
+        rule="(theta, thd) bin of 0.1 rad x 0.25 rad/s holds >= 5 regime-A training rows",
+        oor_angle_rows_in_support=int((oor_angle & dens).sum()),
+        oor_velocity_rows_in_support=int((oor_vel & dens).sum()),
+        max_based_in_support_rows_in_density_support=int((in_R_box & dens).sum()),
+        E_test_rows_in_density_support=int((dens & free).sum()),
+    )
     res["oor"] = dict(
+        E_test_oor_angle_and_velocity_rows=int((oor_angle & (w > thd_max_R)).sum()),
+        p99_boundary_oor_velocity_rows=int(((c < COS_HANGING) & (w > thd99) & free).sum()),
+        p99_boundary_in_support_rows=int(((c <= cos99) & (w <= thd99) & free).sum()),
         R_train_max_cos_theta=cos_max_R, R_train_max_abs_thd=thd_max_R,
         definition_angle="cos(theta) > 0 (pole above horizontal)",
         definition_velocity=f"cos(theta) < {COS_HANGING} and |thd| > R_train max |thd|",
         E_test_rows=int(len(c)), E_test_oor_angle_rows=int(oor_angle.sum()),
-        E_test_oor_velocity_rows=int(oor_vel.sum()), E_test_in_R_support_rows=int(in_support.sum()),
+        E_test_oor_velocity_rows=int(oor_vel.sum()), E_test_in_R_support_rows=int(in_R_box.sum()),
     )
 
     # ---- random-walk energy theory ----------------------------------------
@@ -178,7 +236,9 @@ def main():
     fig, axes = plt.subplots(1, 3, figsize=(18, 5.2), gridspec_kw=dict(width_ratios=[1.5, 1, 1]))
     ax = axes[0]
     E = flatten(all_eps["E_train"])
+    S = flatten(all_eps["S_train"])
     phiE, phiR = wrap_angle(E["q"][:, 1] - np.pi), wrap_angle(R["q"][:, 1] - np.pi)
+    phiS = wrap_angle(S["q"][:, 1] - np.pi)
     ymax = 1.1 * max(np.abs(E["qd"][:, 1]).max(), thd_max_R)
     ax.axvspan(-np.pi, -np.pi / 2, color="#e7298a", alpha=0.10, lw=0)
     ax.axvspan(np.pi / 2, np.pi, color="#e7298a", alpha=0.10, lw=0, label="OOR-angle: pole above horizontal")
@@ -188,8 +248,10 @@ def main():
                         label="OOR-velocity: hanging, $|\\dot\\theta|$ > random-data max" if sgn == 1 else None)
     ax.scatter(phiE[::3], E["qd"][::3, 1], s=1, color="#d95f02", alpha=0.25, rasterized=True)
     ax.scatter(phiR[::3], R["qd"][::3, 1], s=1, color="#1b9e77", alpha=0.4, rasterized=True)
+    ax.scatter(phiS[::3], S["qd"][::3, 1], s=1, color="#7570b3", alpha=0.4, rasterized=True)
     ax.plot([], [], "o", ms=5, color="#d95f02", label="energy-pumping (E, train)")
     ax.plot([], [], "o", ms=5, color="#1b9e77", label="random actions (R, train)")
+    ax.plot([], [], "o", ms=5, color="#7570b3", label="LQR balance + noise (S, train)")
     ph = np.linspace(-np.pi, np.pi, 400)
     th = ph + np.pi
     sep = np.sqrt(2 * agl * (1 - np.cos(th)) / (p.J - (p.mpl * np.cos(th)) ** 2 / p.M_tot))
@@ -222,6 +284,7 @@ def main():
     bins = np.linspace(-1, 1, 41)
     ax.hist(np.cos(R["q"][:, 1]), bins=bins, density=True, alpha=0.6, color="#1b9e77", label="random (R)")
     ax.hist(np.cos(E["q"][:, 1]), bins=bins, density=True, alpha=0.6, color="#d95f02", label="energy-pumping (E)")
+    ax.hist(np.cos(S["q"][:, 1]), bins=bins, density=True, alpha=0.6, color="#7570b3", label="LQR balance (S)")
     ax.axvline(0, color="#e7298a", lw=1.2, ls=":")
     ax.set_yscale("log")
     ax.set(xlabel=r"$\cos\theta$  (−1 hanging, +1 upright)", ylabel="density (log)",

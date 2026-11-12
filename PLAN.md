@@ -2,304 +2,368 @@
 
 ## Context
 
-The course project (IROB 2026, `project/IROB2026_Project_instructions (1) (1).pdf`) requires four things: a dm_control system, a physics-informed network, a black-box baseline plus the analytical model, and one closed-loop task. The approved statement (`project/problem_statement.txt`) is:
+The course project (IROB 2026, `IROB2026_Project_instructions (1) (1).pdf`) requires four things: a dm_control system, a physics-informed network, a black-box baseline plus the analytical model, and one closed-loop task. The approved statement (`problem_statement.txt`) is:
 
 > Learn the forward dynamics q̈ = f(q, q̇, τ) of `cartpole/swingup` with a **Deep Lagrangian Network** (M = LLᵀ + εI, separate V(q), Coriolis terms from autograd, learned damping). Compare it with a **black-box MLP** and the **analytical Euler–Lagrange model** on one-step error, rollout RMSE (0.5 / 1 / 2 s), energy drift (10 s, unforced and undamped), data efficiency (1 / 5 / 20 episodes) and error in the out-of-range upright region. Then run the **same MPPI swing-up controller** with all three models (success over 20 seeds, time-to-balance, cart staying on the rail).
 
-The project folder holds only the PDF and the statement. There is no code yet.
+**Working style:**
+- Each phase starts with a math note in `docs/PARTn_*.md`.
+- Code follows, then a numeric verification against MuJoCo, then pytest checks.
+- Every risk found goes into [docs/ISSUES.md](docs/ISSUES.md), with its evidence, impact and status.
+- The final report shows results only. Code-generated plots are fine; the user records the videos.
 
-**Environment facts (checked on this machine):** Python 3.12.3, which dm_control supports (3.10–3.12). NumPy 1.26 and SciPy 1.11 are installed. dm_control, mujoco and torch are not. There is no NVIDIA GPU; the machine has 8 CPU cores and 7 GB of RAM. `python3-venv` is missing, but `virtualenv` is already in `~/.local`, so no sudo is needed.
+**Environment:**
+- venv at `~/irob_proj` (Python 3.12, dm_control 1.0.51, MuJoCo 4.0.0, torch 2.15 CPU). Pinned versions are in `requirements.txt`.
+- Always run commands as `env -u PYTHONPATH ...`, because ROS's path leaks into the venv.
+- The machine has 8 CPU cores and no GPU.
 
-**Working style (carried over from A2):** each phase starts with a short math note in `docs/`. Code follows, then a numeric verification against MuJoCo, before the next phase starts. The final report shows results only, with no detours. I write the code and the user records the videos.
+## Status
 
-**Phase order (course milestones):** env + analytical model + data first; networks trained next; then a pre-evaluation demo; then the final report, code and viva.
-
----
-
-## 0. The physics we build on (the basis for every assumption)
-
-**Coordinates.** q = (x, θ). x is the slider (cart) position. θ is the hinge angle, with **θ = 0 upright** because the pole capsule runs `fromto 0 0 0 → 0 0 1`, and **θ = π hanging**. Swing-up episodes start at θ ≈ π. The hinge axis is +y, so the centre of mass (COM) of the pole sits at (x + l sinθ, l cosθ).
-
-**Actuation.** Only the cart is driven: τ = [10·u, 0] with u ∈ [−1, 1] (motor gear 10). MuJoCo's `qfrc_actuator` already holds this vector, so underactuation enters the equations as a generalized force with a zero second row. No special handling is needed.
-
-**Parameters to read from `physics.model`.** We never assume these values; we read them from the model. The values below are what I expect, and Phase 1 checks every one.
-
-| symbol | meaning | expected | source |
-|---|---|---|---|
-| m_c | cart mass | 1.0 kg | `body_mass[cart]` |
-| m_p | pole mass | 0.1 kg | `body_mass[pole_1]` |
-| l | hinge → pole COM | 0.5 m | `body_ipos` |
-| I_c | pole inertia about COM (y axis) | ≈ 0.0094 kg m² (cylinder + 2 hemispheres, r = 0.045) | `body_inertia` |
-| J = I_c + m_p l² | pole inertia about hinge | ≈ 0.034 kg m² | derived |
-| b_x, b_θ | viscous damping | ≈ 5e-4, ≈ 2e-6 | `dof_damping` |
-| armature, frictionloss | — | 0, 0 (to verify) | `dof_armature`, `dof_frictionloss` |
-| h | timestep / integrator | 0.01 s, RK4 | `opt.timestep`, `opt.integrator` |
-| rail | slider range | ±1.8 m (soft limit) | `jnt_range` |
-
-**Euler–Lagrange model** (derived from T and V):
-
-- T = ½(m_c+m_p)ẋ² + m_p l cosθ ẋθ̇ + ½Jθ̇²
-- V = m_p g l cosθ
-- M(θ) = [[m_c+m_p, m_p l cosθ], [m_p l cosθ, J]]
-- C(q,q̇)q̇ = [−m_p l sinθ θ̇², 0]
-- g(q) = ∂V/∂q = [0, −m_p g l sinθ]
-- D = diag(b_x, b_θ)
-- M q̈ + C q̇ + g + D q̇ = τ
-
-**Physics facts that set the design choices** (each is worked out in Phase 1):
-
-1. **Translational symmetry.** L does not depend on x, so x is a cyclic coordinate. Noether's theorem then says p_x = ∂L/∂ẋ is conserved when τ = 0, and M and V depend on θ only. → In DeLaN, the M and V networks take (sinθ, cosθ) only. This is a symmetry prior, not parameter knowledge. An ablation keeps x as an input.
-2. **Scale of M.** At cosθ = ±1, M has λ_min ≈ 0.032 and λ_max ≈ 1.10, so the condition number is about 34. → Use **ε = 1e-3**. That is 30 times smaller than λ_min, so it adds no bias, and it bounds ‖M⁻¹‖ ≤ 1000, which prevents blow-ups during training.
-3. **Time scales.** Hanging, the linearised frequency is ω² = m_p g l (m_c+m_p) / (J(m_c+m_p) − (m_p l)²). That gives ω ≈ 3.9 rad/s and a period of about 1.6 s. Upright, there is an unstable eigenvalue of the same size, λ ≈ +3.9 /s, so errors double every ≈ 0.18 s and grow about 2400× in 2 s. → 2 s rollouts that pass near upright are expected to diverge for *every* imperfect model. We interpret them against a reference curve: the analytical model with 1 % parameter error.
-4. **Damping is negligible.** The time constants are (m_c+m_p)/b_x ≈ 2200 s and J/b_θ ≈ 17000 s, both far longer than a 10 s episode. → The learned D is practically unidentifiable. We report it anyway, and we note that it is negligible for the MLP's drift test.
-5. **Energy balance.** Ṁ − 2C is skew-symmetric, so dH/dt = q̇ᵀτ − q̇ᵀDq̇. → When τ = 0 and D = 0, DeLaN conserves its own energy *by construction*, in continuous time. The only drift left comes from RK4, which is O(h⁴). The MLP has no such guarantee.
-6. **Exact labels.** After `env.step`, calling `physics.forward()` recomputes `qacc` at the new state with the same ctrl. q̈ is therefore the exact continuous-time acceleration, not a finite difference. → We train on accelerations directly (no trajectory loss is needed), and the learned models are continuous-time, so MPPI can integrate them with any step size.
-7. **Rail limit.** The joint limit is a soft constraint. When the limit is active, `qfrc_constraint ≠ 0` and the Lagrangian alone no longer explains the motion. iid random forcing at ±10 N makes the cart's velocity random-walk to about 1.7 m/s std over 10 s, so it hits the limit often. → Record `qfrc_constraint`. Training uses **τ_gen = qfrc_actuator + qfrc_constraint**, because constraint forces are just more generalized forces in the Lagrange equations. Rollout test windows exclude any window in which the limit becomes active. MPPI keeps |x| < 1.6 m.
+| phase | content | status |
+|---|---|---|
+| 0 | Environment, repo skeleton | **Done** |
+| 1 | Analytical EL model, validated against MuJoCo | **Done**: [docs/PART1_EL.md](docs/PART1_EL.md) |
+| 2 | Datasets R / E / S / U, label audit, support definition | **Done**: [docs/PART2_DATA.md](docs/PART2_DATA.md) |
+| 3 | MLP + DeLaN, training | next |
+| 4 | Open-loop evaluation | — |
+| 5 | MPPI swing-up and balance; tuning can start now with the analytical model | — |
+| 6 | Pre-evaluation demo | — |
+| 7 | Ablations, report, submission, viva prep | — |
 
 ---
 
-## Phase 0 — Environment and repo skeleton
+## 0. Physics facts the design rests on (all verified in Phase 1)
 
-- Run `python3 -m virtualenv ~/irob_proj && source ~/irob_proj/bin/activate`.
-- Run `pip install dm_control mujoco numpy scipy matplotlib pandas tqdm imageio[ffmpeg]` and `pip install torch --index-url https://download.pytorch.org/whl/cpu`. The CPU wheel avoids roughly 2 GB of CUDA packages, which this machine can't use anyway.
-- Smoke test: run the PDF's random-episode script and print the shape `(1000, 8)`. Set `MUJOCO_GL=egl` for headless rendering, with `osmesa` as the fallback.
-- Freeze `requirements.txt`.
-- Repo layout (all under `project/`):
-  ```
-  cartpole/            # python package
-    params.py          # read every parameter from physics.model (no hard-coded numbers)
-    analytical.py      # EL model in numpy + batched torch (same f(q,q̇,τ) interface)
-    integrators.py     # batched RK4 (torch), wrapped-angle helpers
-    data.py            # collectors: random, energy-pumping, unforced-undamped
-    models/mlp.py, models/delan.py
-    train.py, evaluate.py, mppi.py, closed_loop.py, plotting.py, render.py
-  scripts/             # p1_validate.py, p2_collect.py, p3_train.py, p4_eval.py, p5_mppi.py ...
-  docs/                # PART1_EL.md, PART2_DATA.md, PART3_MODELS.md, PART4_EVAL.md, PART5_MPPI.md
-  data/ weights/ results/ figures/ report/ minutes/
-  tests/               # pytest: the structural checks listed in each phase
-  README.md            # one command per figure (required by submission)
-  ```
-- **One common interface:** `model.qdd(q, qd, tau) -> qdd`, batched, in torch. All three models (analytical, MLP, DeLaN) implement it and share **the same RK4 integrator and the same MPPI**. The comparison isolates the model because nothing else differs.
-- Start `minutes/` now with one file per meeting. Minutes are a required deliverable.
+Coordinates: q = (x, θ). **θ = 0 is upright** and θ = π is hanging. τ = [10u, 0] with u ∈ [−1, 1].
 
-## Phase 1 — Analytical model and validation
+| quantity | value | source / check |
+|---|---|---|
+| m_c, m_p, l | 1.0 kg, 0.1 kg, 0.5 m | `physics.model` |
+| I_c (capsule, r = 0.045, L = 1) | 0.0094246 kg m² | hand formula = MuJoCo exactly |
+| J = I_c + m_p l² | 0.0344246 kg m² | thin-rod value 0.03333 (−3.17 %) |
+| b_x, b_θ | 5×10⁻⁴, 2×10⁻⁶ | damping time constants 2200 s and 17 212 s ≫ 10 s |
+| h, integrator | 0.01 s, RK4 | our RK4 = MuJoCo's to 2×10⁻¹⁵ |
+| rail | ±1.8 m, soft limit | `qfrc_constraint` up to 53 N in the data |
+| M eigenvalues | 0.032 … 1.10, condition number 34 | ⇒ ε = 10⁻³ |
+| ω (hanging), λ (upright) | 3.906 rad/s, period 1.609 s; λ = +3.906 /s, errors double every 0.177 s | ⇒ 2 s rollouts near upright amplify errors about 2400× |
+| separatrix speed at the bottom | 7.81 rad/s | ⇒ the boundary between the drift groups |
+| RK4 energy-drift floor, 10 s | 2×10⁻⁹ … 1.2×10⁻⁶ m_p g l; scales as h⁵ | ⇒ learned drift is meaningful only above this |
 
-**Math (`docs/PART1_EL.md`):**
-- Derive T, V, M, C, g and D as in §0, with the capsule inertia derived by hand (cylinder plus two hemispheres, parallel-axis theorem).
-- Prove that Ṁ − 2C is skew-symmetric and derive the energy balance dH/dt = q̇ᵀ(τ − Dq̇).
-- Derive the hanging and upright linearisations: eigenvalues ±iω and ±λ.
-- Derive p_x conservation (Noether).
+**Structural identities** (PART1 §4):
+1. **M ≻ 0.**
+2. **Translational symmetry:** M and V depend on θ only, and p_x is conserved.
+3. **q̇ᵀ(Ṁ − 2C)q̇ = 0 for ANY M(q)** when C q̇ = Ṁ q̇ − ½ ∂_q(q̇ᵀ M q̇). Hence dH/dt = q̇ᵀ(τ − D q̇), so an untrained DeLaN already conserves its own energy.
 
-**Code:** `params.py` and `analytical.py`.
+---
 
-**Validation.** All checks run along recorded random trajectories and must pass to round-off (≲1e-10):
-1. M(q) against `mujoco.mj_fullM`.
-2. Cq̇ + g against `qfrc_bias`.
-3. −Dq̇ against `qfrc_passive`.
-4. Forward dynamics q̈_analytical against `qacc`.
-5. Inverse dynamics τ̂ = Mq̈ + Cq̇ + g + Dq̇ against `mujoco.mj_inverse → qfrc_inverse`, as the instructions require, with `qfrc_constraint` accounted for on limit rows.
-6. Our torch RK4 with dt = 0.01, rolled out against MuJoCo's RK4 for 10 s without limit hits. Agreement should be about 1e-10. This shows that our integrator *is* MuJoCo's, so integrator mismatch is gone as an error source. That was the lesson from A2.
-7. The hand-derived capsule I_c against `body_inertia`.
+## Phases 0–2 — done (summary)
 
-**Extra baseline, "Analytical (thin-rod)":** use I = m_p L²/3 (L = 1 m), as a textbook / A2-style derivation would. J is then about 3 % low. This gives a realistic "hand-derived model with structural error" next to the exact oracle. It also connects to A2, which found URDF-vs-MuJoCo parameter gaps.
+- **Phase 0:** the venv, pinned requirements, the repo layout, and one model interface `model.qdd(q, qd, tau)` shared by every model, the RK4 integrator and MPPI.
+- **Phase 1:**
+  - [cartpole/params.py](cartpole/params.py) reads every parameter from MuJoCo.
+  - [cartpole/analytical.py](cartpole/analytical.py) provides the analytical model and a thin-rod variant.
+  - Seven checks pass at round-off: M, Cq̇ + g, Dq̇, q̈, `mj_inverse`, energy, and RK4 against MuJoCo.
+  - The 2×10⁻⁴ q̈ residual on rail-limit rows was traced to MuJoCo's constraint-solver tolerance.
+- **Phase 2:**
+  - [scripts/p2_collect.py](scripts/p2_collect.py) generates the pools: R (random), E (energy pumping), S (LQR balance), U (unforced, undamped, 4 groups).
+  - The splits are by episode.
+  - Training uses `flatten(..., drop_limit=True)`.
+  - `in_support` gives a density-based training support.
+  - The random-walk theory explains why R never reaches upright: about 92 s would be needed, against 10 s episodes; measured within 3 % of theory before rail contact.
+  - Fixed issues: D1, D2, D3, D5, D10 (see ISSUES.md).
 
-**Deliverable figure:** residual histograms for checks 1–5, plus a table of parameters with their MuJoCo values.
+**Data available for later phases:**
 
-## Phase 2 — Data generation → milestone: env, analytical model and data ready
+| pool | train / val / test (episodes) | role |
+|---|---|---|
+| R random | 20 / 5 / 10 | regime A; in-range test |
+| E pumping | 20 / 5 / 10 | regime B; OOR-angle and OOR-velocity tests (from E_test) |
+| S balance | 10 / 3 / 5 | regime B; balance-region test (S_test) |
+| U unforced, undamped | 40 initial states (small / large / rotating / fast_rotating) | energy drift |
 
-**Row format.** Each row holds (x, θ, ẋ, θ̇, u, τ_act, τ_constraint, q̈, qfrc_passive, energy[2], limit_active), recorded with the PDF's `physics.forward()` pattern at 100 Hz. Each episode is 1000 steps (10 s), the dm_control default.
+---
 
-**Pools.** Episodes are split by **episode, not by row**. Consecutive 100 Hz rows are almost identical, so a row-level split would leak test data into training.
+## Phase 3 — Models and training
 
-| pool | excitation | episodes | purpose |
-|---|---|---|---|
-| **R** random | u ~ U[−1,1] iid each step, as in the statement and PDF | 20 train, 5 val, 10 test | the "in-range" regime |
-| **E** energy-pumping + noise | see below | 20 train, 5 val, 10 test | upright / high-energy coverage; held-out out-of-range (OOR) test |
-| **U** unforced, undamped | `dof_damping[:] = 0`, u = 0, energy flag on | 30 initial states × 10 s | energy-drift ground truth |
+**Math note:** [docs/PART3_MODELS.md](docs/PART3_MODELS.md). It covers:
+- the DeLaN derivation, with Cq̇ by a forward-mode JVP;
+- the proof that the energy identity holds for any M and V;
+- why the inverse loss alone is degenerate, and the scale-invariant fix;
+- how the loss is normalised;
+- how parameters are identified from the learned M and V.
 
-**Why R alone misses the upright states.** iid noise at 100 Hz spreads its power evenly over 0–50 Hz. Only a tiny fraction lands near the 0.62 Hz pendulum resonance, so θ stays near π. We confirm this by reporting the θ histogram and the maximum of cosθ in R.
+### 3.1 Dataset builder — `cartpole/dataset.py`
 
-**Energy-pumping policy (Åström–Furuta).** Let E_p = ½Jθ̇² + m_p g l cosθ. From the pole equation, dE_p/dt = −m_p l cosθ θ̇ ẍ. Choosing ẍ_des = k(E_p − E_ref) θ̇ cosθ gives V = ½(E_p − E_ref)² a non-positive derivative, so the energy converges to E_ref.
-- Add the cart-centering term −k_x x − k_v ẋ.
-- Convert to an action with u = (m_c+m_p) ẍ_des / 10, plus Ornstein–Uhlenbeck noise (correlation time ≈ 0.2 s, near resonance), then clip.
-- Draw E_ref per episode from U[−m_p g l, 1.5 m_p g l]. That range covers small swings, the separatrix, and full rotations, so trajectories sweep the whole (θ, θ̇) phase plane.
-- The noise also breaks the θ̇ cosθ = 0 deadlock at rest.
-- The policy uses nominal parameters. That is acceptable because it only collects data and is never part of an evaluated model.
+- **`build(regime, N, seed) -> (train, val, stats)`**
+  - **Regime A:** N random episodes drawn from R_train with `rng(seed)`, without replacement.
+  - **Regime B:** N R + N E + ⌈N/2⌉ S, all drawn with the same `rng`.
+  - **Validation:** R_val for A; R_val + E_val + S_val for B.
+  - Rail-limit rows are always dropped (ISSUES D2).
+- **Inputs:** (x, sinθ, cosθ, ẋ, θ̇, τ_x). τ_θ is always 0, so feeding it would be a constant input.
+- **Targets:** (ẍ, θ̈).
+- **`stats`, computed on the training rows only:**
+  - per-feature input mean and std (for the MLP);
+  - per-axis std σ_ẍ and σ_θ̈ (for the loss);
+  - std of τ_x (for the inverse loss).
+- **Seeds (ISSUES D6):** 5 seeds for N = 1, 3 seeds for N = 5 and 20. Each seed changes both the episode subset and the network initialisation.
 
-**Test regions, defined from the data rather than chosen by hand:**
-- **In-range:** test episodes from R.
-- **OOR-angle:** states in E-test with cosθ > 0 (pole above horizontal). We check that R has zero support there.
-- **OOR-velocity:** E-test states that are hanging (cosθ < −0.8) but have |θ̇| > max|θ̇| in R-train. This separates two kinds of extrapolation. DeLaN is *exactly* quadratic in q̇ and linear in τ, so it should extrapolate in velocity for free. In angle, its M and V networks must extrapolate on their own. That is an honest account of where the structure helps.
+### 3.2 Architectures (matched parameter count, about 34 k each)
 
-**Training regimes:**
-- **A, random only:** N ∈ {1, 5, 20} R episodes. Used for one-step error, rollouts, drift, OOR and data efficiency.
-- **B, random + pumping:** N R + N E episodes. N = 20 is the main model for MPPI, so every model has seen upright states and the comparison is fair. N = 5 is optional, for closed-loop data efficiency.
+| | MLP (black box) | DeLaN |
+|---|---|---|
+| inputs | (x, sinθ, cosθ, ẋ, θ̇, τ_x), standardised | M-net and V-net see (sinθ, cosθ) only (translational symmetry, PART1 P2); q̇ and τ enter only through the EL structure |
+| body | 3 × 128, softplus | L-net 2 × 128 → 3 outputs (l₁₁, l₂₁, l₂₂); V-net 2 × 128 → 1; damping D = diag(softplus(d)) |
+| outputs | standardised (ẍ, θ̈), de-standardised | q̈ = M⁻¹(τ − Cq̇ − g − Dq̇); also M, V, H, τ̂ |
+| parameters | 34 178 | 17 283 + 17 025 + 2 = 34 310 |
 
-**Measurement noise:** none in the main study, because MuJoCo gives exact states and q̈. One optional robustness run adds σ_q = 1e-3 and σ_q̇ = 1e-2 to the inputs.
-
-**Deliverable:** a phase-portrait coverage figure (θ vs θ̇ for R and E, with the OOR regions shaded) and a dataset-size table.
-
-## Phase 3 — Models and training → milestone: networks trained
-
-**DeLaN (`models/delan.py`):**
-- **L-net:** (sinθ, cosθ) → 2×64 → 3 outputs (l₁₁, l₂₁, l₂₂). The diagonal goes through softplus, so L is a valid Cholesky factor. Then M = LLᵀ + εI with ε = 1e-3 (§0.2). The diagonal biases start at log-scales matched to M₁₁ ~ 1 and M₂₂ ~ 0.03. The two entries differ by 30×, and starting near the right scale avoids a long transient.
-- **V-net:** (sinθ, cosθ) → 2×64 → 1.
-- **Damping:** D = diag(softplus(d)), which guarantees q̇ᵀDq̇ ≥ 0, i.e. passivity.
-- **Activation: softplus**, smooth (C^∞). Gravity needs ∂V/∂θ and Coriolis needs ∂M/∂θ, and training backpropagates through these derivatives, so the network needs at least C². With ReLU, g and C would be piecewise constant and discontinuous.
-- **Efficient derivatives.** M and V depend on the scalar θ only, so **one forward-mode JVP** (`torch.func.jvp`, tangent e_θ) gives both ∂M/∂θ and ∂V/∂θ. Then:
-  - Cq̇ = (∂M/∂θ) θ̇ q̇ − ½[0, q̇ᵀ(∂M/∂θ)q̇]
+**DeLaN details, each with its reason:**
+- **M = LLᵀ + εI, ε = 10⁻³, with L₁₁ = softplus(·) and L₂₂ = softplus(·).** Positive diagonals make the Cholesky factor unique and smooth. ε is 30× below λ_min = 0.032 and bounds ‖M⁻¹‖ ≤ 1000 during training.
+- **Softplus everywhere.** g and C need ∂M/∂θ and ∂V/∂θ, and training backpropagates through them, so the network must be at least C². With ReLU, g and C would be piecewise constant.
+- **Derivatives from one forward-mode JVP.** M and V depend on the scalar θ only, so `torch.func.jvp` with tangent e_θ gives ∂M/∂θ and ∂V/∂θ in one pass. Then:
+  - Cq̇ = (∂M/∂θ) θ̇ q̇ − ½ [0, q̇ᵀ(∂M/∂θ)q̇]
   - g = [0, ∂V/∂θ]
-  - q̈ = solve(M, τ − Cq̇ − g − Dq̇), using a closed-form 2×2 solve.
+  - q̈ is solved with the closed-form 2×2 `solve2`.
 
-  The same code serves training (with `create_graph`) and MPPI inference.
-- Angles go into sin/cos *inside* the graph, so derivatives are taken with respect to θ, not with respect to the features. This handles wrap-around and multi-turn θ.
-- Outputs include M(θ), V(θ), H = ½q̇ᵀMq̇ + V, and inverse dynamics τ̂.
+  sin and cos are computed inside the graph, so derivatives are taken with respect to θ.
+- **Initialisation, without using the true parameters:**
+  - Weights use the PyTorch defaults.
+  - The L-diagonal biases are 0, which gives M ≈ 0.48 I. If convergence is slow, the fallback is a *data-driven* M₁₁ initialisation from least squares of τ_x on ẍ.
+  - **Damping raw parameter = softplus⁻¹(10⁻⁴)** (ISSUES P1). softplus(0) = 0.69 would mean a 1.6 s damping time constant, which the data cannot undo (PART1 P5).
+- **The MLP uses the same softplus activation,** so that smoothness is not a confound.
 
-**MLP baseline (`models/mlp.py`):** (x, sinθ, cosθ, ẋ, θ̇, τ₁) → 3×128 softplus → (ẍ, θ̈). Inputs and outputs are standardised. Its parameter count roughly matches DeLaN's, and it uses the same optimiser, data, normalisation, early stopping and seeds. The only difference is the structure.
+### 3.3 Loss
 
-**Loss:**
-- Forward term: Σ‖(q̈̂ − q̈)/σ_q̈‖². Each axis is normalised by its std because θ̈ (~30 rad/s²) would otherwise swamp ẍ (~9 m/s²).
-- Plus λ_inv · ‖(τ̂ − τ)/σ_τ‖², the Euler–Lagrange residual as in Lutter et al., with λ_inv ∈ {0, 0.1, 1} picked on the validation set.
-- **The forward term must stay.** On the unactuated row τ₂ = 0, so the inverse residual alone has a degenerate direction: the θ-row terms (M₂₂, V, b_θ) shrink toward 0 and the residual vanishes. The forward loss pins them down.
-- The second row cannot be rescaled arbitrarily because M must be symmetric and M₁₂ = m_p l cosθ ≠ 0 couples it to the actuated row. That coupling is why DeLaN can identify M and V in physical units.
+**Forward loss:**
+$$\mathcal L_{fwd} = \tfrac1n\sum_i \Big[\big(\tfrac{\hat{\ddot x}_i - \ddot x_i}{\sigma_{\ddot x}}\big)^2 + \big(\tfrac{\hat{\ddot\theta}_i - \ddot\theta_i}{\sigma_{\ddot\theta}}\big)^2\Big]$$
+It is identical for both models. Per-axis normalisation is needed because σ_θ̈ is 2–3× σ_ẍ (PART2 §2).
 
-**Training:** Adam at 1e-3 with cosine decay, batch 512, early stopping on validation episodes, gradient clipping at 10. Float32 for training, **float64 for every evaluation rollout**, so round-off does not pollute drift numbers. Use 3 seeds per configuration, the minimum needed to show spread: 2 models × 3 sizes × 2 regimes × 3 seeds = 36 short CPU runs.
+**Inverse loss (DeLaN only, weight λ_inv ∈ {0, 0.1, 1}, chosen on validation):**
+$$\mathcal L_{inv} = \big(\tfrac{\hat\tau_x - \tau_x}{\sigma_\tau}\big)^2 + \big(\tfrac{\hat\tau_\theta}{\mathrm{sg}(\hat M_{22})\,\sigma_{\ddot\theta}}\big)^2$$
+- **The degeneracy.** The unactuated row has target 0. If its residual were normalised by a fixed scale, the network could shrink it by making the θ-row terms (M₂₂, V, b_θ) smaller, which is a degenerate direction.
+- **The fix.** Divide by the model's own detached M₂₂ (sg = stop-gradient). The residual then becomes an acceleration-scale quantity that cannot be reduced by rescaling.
+- **The forward loss always stays in.**
 
-**Structural unit tests (`tests/`), which also make good viva demonstrations:**
-1. With a *randomly initialised* DeLaN, M is symmetric with eig ≥ ε for any θ.
-2. With a *random* DeLaN, q̇ᵀ(Ṁ − 2C)q̇ ≈ 0, and H stays constant along a rollout with τ = 0 and D = 0, up to O(h⁴). This shows the guarantee comes from structure, not training.
-3. Plugging the analytical M and V into the DeLaN autograd pipeline reproduces `analytical.qdd` to 1e-12. This checks the Coriolis-by-autograd code.
+### 3.4 Training settings
 
-**Deliverable figure: learned vs true M₁₁, M₁₂, M₂₂ and V over θ ∈ [−π, π]**, with the training support shaded. Least-squares fits of the learned curves on the analytical basis {1, cosθ} give the identified m_c+m_p, m_p l, J and m_p g l, which we compare with MuJoCo. This covers the "identified parameters" item in the instructions.
+- **Optimiser:** Adam, lr 10⁻³ with cosine decay to 10⁻⁵, batch 512.
+- **Gradient clipping:** at 10, as protection against early M⁻¹ spikes.
+- **Fixed budget of 30 000 gradient steps.** Compute is then equal across N, and epochs are not comparable between N = 1 (about 950 rows) and N = 20.
+- **Early stopping:** evaluate the validation loss every 500 steps and keep the best weights; patience is 10 evaluations.
+- **Precision:** float32 for training. All evaluations in Phase 4 run in float64, so round-off cannot pollute the drift.
+- **Runs:**
+  - regime A: (5 + 3 + 3) seeds × 2 models = 22;
+  - regime B, N = 20: 3 seeds × 2 models = 6;
+  - optional regime B, N = 5: 6.
+  - About 30–35 runs in total, at roughly 1–3 min each on CPU.
+- **Parallelism:** 4 processes with `torch.set_num_threads(2)` each.
+- **Saved per run:** `weights/{model}_{A|B}{N}_s{seed}.pt`, holding the state dict, the config, the normalisation stats, the best validation loss and the step count.
+
+### 3.5 Tests — `tests/test_models.py`
+
+1. A *random-init* DeLaN gives symmetric M with eigenvalues ≥ ε for 10⁴ random θ.
+2. A *random-init* DeLaN satisfies q̇ᵀ(Ṁ − 2C)q̇ = 0 to 10⁻¹⁰ in float64. With τ = 0 and D = 0, its own H along a 10 s RK4 rollout stays constant to the integrator floor. This shows the guarantee comes from structure.
+3. Plugging the analytical M and V into the DeLaN pipeline reproduces `AnalyticalModel.qdd` to 10⁻¹². This checks the JVP-based Coriolis code.
+4. DeLaN inverse ∘ forward is the identity, i.e. τ̂(q, q̇, q̈(τ)) = τ.
+5. Both models overfit one batch of 512 rows to a loss below 10⁻⁴. This is a plumbing check.
+6. **`torch.func.jvp` works under `torch.no_grad()` for MPPI inference.** If it doesn't, MPPI wraps the DeLaN call in `torch.enable_grad()`.
+
+### 3.6 Outputs and acceptance
+
+**Outputs:**
+- `results/p3_training.json`;
+- `figures/p3_training_curves.*`;
+- **`figures/p3_learned_structure.*`:** M₁₁, M₁₂, M₂₂ and V(θ) − V(π) against the truth over θ ∈ [−π, π], for regime A20 and B20, with the training support shaded. This is the key DeLaN figure.
+
+**Parameter identification, with two independent estimates of m_p l:**
+- Least-squares fit of the learned M₁₁ → m_c + m_p.
+- Fit of M₁₂ on cosθ → m_p l (**inertial**).
+- Fit of M₂₂ → J.
+- Fit of V on cosθ → m_p g l (**gravitational**).
+- **Consistency check:** m_p l from M₁₂ against m_p g l / g from V. Agreement is a physics check the MLP cannot offer. Report it with D against the true values.
+
+**Acceptance criteria:**
+- tests 1–6 pass;
+- validation loss converges for every run;
+- in regime A20, the in-range one-step nRMSE is a few percent or less for both models;
+- DeLaN's identified parameters lie within a few percent of the truth *inside* the training support.
+
+---
 
 ## Phase 4 — Open-loop evaluation
 
-All three models (plus thin-rod) use the same RK4 at dt = 0.01 and the same recorded inputs.
+**Math note:** [docs/PART4_EVAL.md](docs/PART4_EVAL.md). **Script:** `scripts/p4_eval.py`, which writes `results/p4_*.json` and `figures/p4_*`.
 
-| metric | definition | why this definition |
-|---|---|---|
-| One-step error | nRMSE of q̈ per axis; also the state error after one RK4 step | q̈ is the training target. The state error is what MPPI actually feels. |
-| Rollout RMSE at 0.5 / 1 / 2 s | Replay the recorded u open-loop from ≥200 start points per test set. Report RMSE of wrapped θ and of x; median and IQR across windows. Windows with limit activity are excluded. | The open-loop replay keeps the plant inputs identical. Wrapped angles prevent fake 2π errors. The median resists the exponential divergence near upright (§0.3). |
-| Energy drift (10 s) | From pool U, roll out with τ = 0 (and D = 0 for DeLaN, which its structure allows). Plot \|H_true(ŝ(t)) − H_true(s₀)\| / (m_p g l), using MuJoCo's `data.energy` as ground truth. Also report DeLaN's own learned H(t), and p_x(t) drift as a second invariant. | H_true is evaluated *along each model's predicted trajectory*, which is the only fair way to score the MLP since it has no energy. Normalising by m_p g l (≈ 0.49 J) is the natural energy scale. The MuJoCo-RK4 and analytical-RK4 drift give the integrator floor. |
-| Data efficiency | Every metric above for N = 1, 5, 20 episodes (regime A), mean ± std over 3 seeds | Required: at least 3 sizes. |
-| OOR error | One-step and 0.5 s rollout error on OOR-angle and OOR-velocity, plus an error heat-map over the (θ, θ̇) plane with the training-support contour | Shows *where* extrapolation fails rather than a single number. |
-| Inverse dynamics (DeLaN and analytical) | τ̂ against `mj_inverse`; the row-2 residual should be ≈ 0 | Comes free with DeLaN. The MLP cannot produce it. |
-| Compute | µs per batched q̈ evaluation | Feeds the MPPI cost discussion. |
+**Models evaluated**, all through the same `rk4_step` in float64:
+- Analytical (oracle);
+- Analytical (thin rod);
+- Analytical with +1 % on every parameter (a reference curve);
+- MLP and DeLaN for every regime, N and seed.
 
-Reference curve: the analytical model with all parameters perturbed by +1 %, shown so the size of each learned model's error has a physical meaning.
+| metric | definition | why this definition | ISSUES |
+|---|---|---|---|
+| One-step | nRMSE of q̈ per axis (normalised by test std), plus the state error after one RK4 step; **per region**: hanging (cosθ < −0.8), mid, upright (cosθ > 0.8), balance, OOR-angle, OOR-velocity, density-supported vs not | Overall averages hide region-wise failures because hanging dominates the data. | D4 |
+| Rollout RMSE at 0.5 / 1 / 2 s | Open-loop replay of the recorded u from start points every 25 steps on R_test, E_test and S_test. RMSE of wrapped θ and of x at each horizon; median and IQR across windows; **windows that touch the limit are excluded** | Replay keeps plant inputs identical. Wrapping avoids fake 2π errors. The median resists the exponential divergence near upright (λ = 3.9 /s). | A2 |
+| Valid-prediction time | First t with \|Δθ\| > 0.1 rad, averaged over windows | A single number that degrades gracefully, unlike RMSE after divergence. | — |
+| Energy drift (10 s) | U pool, τ = 0. Report max_t \|H_true(ŝ(t)) − H_true(s₀)\| / (m_p g l) **per group, with the group's support label**. DeLaN is run twice, with D = 0 and with its learned D. Also DeLaN's own H(t), the p_x(t) drift, and the state error. The analytical RK4 and MuJoCo give the floor. | H_true along the predicted trajectory is the only fair energy score for the MLP. The D = 0 asymmetry is negligible here (damping time constants ≫ 10 s) and is stated. | D5, P2 |
+| Data efficiency | Every metric above against N = 1, 5, 20 (regime A), mean ± std over seeds, on log-log axes | Required by the brief, with three sizes. | D6 |
+| OOR | One-step and 0.5 s rollout error on OOR-angle and OOR-velocity, **error heat map over (θ, θ̇) with the density-support contour**, and **error against distance to support** (Chebyshev distance in bins to the nearest supported bin) | Shows where extrapolation fails, and measures distance from what was *actually* trained on, not from a max-based box. | D1 |
+| Inverse dynamics | DeLaN τ̂ against `mj_inverse` on test rows; the row-2 residual (should be ≈ 0) | Comes free with DeLaN; the MLP cannot do it. | — |
+| Identified parameters | From Phase 3.6, compared with MuJoCo | Required "where applicable". | — |
+| Compute | µs per batched q̈ evaluation (batch 512), per model | Feeds the MPPI cost discussion. | — |
+
+**Expected findings, written down before running so they can be checked honestly:**
+- DeLaN beats the MLP on energy drift (by structure) and on OOR-velocity (exact quadratic dependence on q̇).
+- On OOR-angle the outcome is genuinely open, because both models must extrapolate M and V or f in θ.
+- Both models degrade on 2 s rollouts near upright, as the λ-amplification predicts.
+- DeLaN's margin should be largest at N = 1.
+
+---
 
 ## Phase 5 — MPPI swing-up and balance
 
-**Start Phase 5 with the analytical model as soon as Phase 1 passes, in parallel with Phases 2–3.** MPPI needs only `qdd`. If MPPI fails with the *exact* model, the problem is tuning, not learning. This removes the "about a day of MPPI tuning" risk from the critical path.
+**Math note:** [docs/PART5_MPPI.md](docs/PART5_MPPI.md). **Code:** `cartpole/mppi.py`, `scripts/p5_mppi.py`. Tuning starts **now** with the analytical model, in parallel with Phase 3.
 
-**Algorithm.** Information-theoretic MPPI (Williams et al. 2017):
-- Sample K control sequences U + ε_k, with ε_k ~ N(0, σ²I).
-- Roll them out in one batched torch call.
-- Compute the cost S_k = Σ c(s_t, u_t) + φ(s_H) + λ Σ uᵀσ⁻²ε.
-- Weight each sequence by w_k ∝ exp(−(S_k − min S)/λ) and update U ← U + Σ w_k ε_k.
-- Warm-start by shifting U one step.
+### 5.1 Algorithm (information-theoretic MPPI, Williams et al. 2017)
 
-**Settings, each with a reason:**
-- **Planning step and horizon:** Δt_plan = 0.02 s with RK4 on the continuous-time model, horizon H = 75 (1.5 s, about one pendulum period). This is allowed because the model is continuous-time (§0.6). ωΔt ≈ 0.08, so RK4 error is negligible. A full period of look-ahead is enough to see the payoff of a pump.
-- **Samples:** K = 512 to start.
-- **Noise:** σ = 0.5 in action units (5 N), with time-correlated noise or smoothing for smooth forces.
-- **Temperature:** λ is adapted each step so that the effective sample size, ESS = 1/Σw², stays at 10–20 % of K. This replaces a hand-tuned temperature with a statistical target.
-- **Replanning:** apply the first action and replan at 100 Hz, the env rate. If CPU time is too high, use a zero-order hold of 2 steps.
-- **Stage cost:** c = w_θ(1 − cosθ) + w_x x² + w_θ̇ θ̇² + w_ẋ ẋ² + w_u u², plus a steep barrier on |x| > 1.6 m. The 1.6 m threshold leaves 0.2 m of margin to the ±1.8 limit, which no model represents.
-- **Terminal cost:** φ uses the same terms, more heavily weighted. If MPPI stalls at the bottom because the cost is myopic, add an **energy-shaping term** w_E(E_p − m_p g l)². This uses known task geometry and is identical for all models, so it is part of the task, not the model.
-- **Fallback if balancing is jittery:** MPPI for swing-up, then LQR when |θ| < 0.3. The LQR gain comes from the *same model's* autograd Jacobian at the upright, so every controller still depends only on the model being tested.
+**One iteration:**
+1. Sample K noise sequences ε_k ∈ ℝ^H, with time correlation from an AR(1) filter at coefficient 0.8, for smooth forces.
+2. Form U_k = clip(U + ε_k, −1, 1).
+3. Roll out all K in one batched call: RK4 with Δt_plan = 0.02 and τ = [10u, 0].
+4. Compute the cost S_k = Σ_t c(s_t, u_t) + φ(s_H) + λ Σ_t u_tᵀ σ⁻² ε_t.
+5. Weight w_k = softmax(−(S_k − min S)/λ) and update U ← U + Σ_k w_k ε_k.
+6. Apply U₀, shift U by one step (warm start), and repeat at 100 Hz.
 
-**Fairness protocol:**
-- Tune all hyperparameters with the analytical model on tuning seeds 100–109, then **freeze them**.
-- Evaluate all three models (plus thin-rod) on seeds 0–19, which set both the env initial state and the MPPI noise.
-- There is no per-model tuning.
+**Temperature:** λ is chosen by bisection each step so that ESS = 1/Σw² sits in [0.1 K, 0.2 K]. This is a statistical target, not a hand-tuned temperature.
 
-**Closed-loop metrics:**
-- **Balanced:** |wrap θ| < 0.2 rad (≈11°, where sinθ ≈ θ to within 0.7 %, i.e. the linear regime) and |θ̇| < 1 rad/s.
-- **Time-to-balance:** the first t at which "balanced" holds continuously for 2 s. Two seconds is longer than one natural period, which rules out a pass through the upright counting as balance.
-- **Success:** balanced within the 10 s episode, and the rail limit never active.
-- **Also reported:** max |x|, whether `qfrc_constraint` ever became non-zero, dm_control episode return, and ms per control step.
-- **Statistics:** success rate with a **Wilson 95 % interval**. With n = 20, for example, 18/20 gives [0.70, 0.97], so the report only claims differences the intervals support.
+**Starting settings and reasons:**
 
-**Process:**
-- Run in parallel over seeds with `multiprocessing` (8 cores).
-- Budget: about 0.1 s per control step × 1000 steps × 20 seeds × 4 models ≈ 2–3 CPU hours. Parallel runs bring that under 1 hour.
-- **Main run:** regime-B N = 20 models.
-- **Stress test:** regime-A models, which have never seen upright states. This is the clearest "structure helps or doesn't" result.
+| setting | value | reason |
+|---|---|---|
+| planning step and horizon | Δt_plan = 0.02 s, H = 75 (1.5 s ≈ one period) | ωΔt = 0.08, so RK4 error is negligible. One period of look-ahead shows the payoff of a pump. Allowed because the models are continuous-time. |
+| samples | K = 512 | |
+| noise | σ = 0.5 (5 N) | |
+| stage cost | Bryson-style weights: w_θ(1 − cosθ), with (1 − cosθ) ∈ [0, 2]; x²/1²; ẋ²/2²; θ̇²/5²; 0.1 u² | Each term is O(1) at its acceptable deviation. |
+| rail barrier | 10³ · relu(\|x\| − 1.6)² | 0.2 m of margin to a limit that no model knows (ISSUES A2). |
+| terminal cost | 10 × the stage cost | |
+| energy shaping (if needed) | add w_E (E_p − m_p g l)² if MPPI stalls at the bottom | E_p uses the known geometry, identical for all models, so it is part of the task. |
+
+**Fallback:** MPPI for swing-up, then LQR when |θ| < 0.3 and |θ̇| < 2, with hysteresis. The LQR gain comes from the **same model's** autograd Jacobian at upright, so every controller depends only on the model under test. The Bryson weights are the same as for pool S.
+
+### 5.2 Tuning protocol (no test-seed leakage)
+
+- Tune **only** with the analytical model on seeds 100–109.
+- Log every configuration tried to `results/p5_tuning.csv`, so no result is cherry-picked.
+- **Freeze** the chosen configuration to `results/p5_mppi_config.json`.
+- **Acceptance:** at least 18/20 success with the analytical model on seeds 0–19. Otherwise the problem is the controller, not the models.
+
+### 5.3 Evaluation
+
+**Models:** analytical, thin-rod, MLP-B20, DeLaN-B20. For the learned models, use the training seed with the best *validation* loss; all 3 seeds if time permits.
+
+**Stress test:** MLP-A20 and DeLaN-A20, which have never seen upright.
+
+**Runs:** env seeds 0–19 per model. The seed sets the initial state and the MPPI noise.
+
+**Metrics:**
+- **Balanced:** |wrap θ| < 0.2 and |θ̇| < 1.
+- **Time-to-balance:** the first t at which "balanced" then holds for 2 s.
+- **Success:** balanced within the 10 s episode **and** the rail limit never active.
+- **Also:** max |x|, dm_control return, ms per control step, and the number of control steps where the MPPI/LQR switch occurs (if the fallback is used).
+
+**Statistics:**
+- **Wilson 95 % interval** on each success rate. With n = 20, 18/20 gives [0.70, 0.97], so claim only differences the intervals support.
+- A cumulative "fraction balanced against time" curve per model (Kaplan–Meier style, where failures are censored at 10 s).
+
+**Compute:**
+- About 0.1 s per step × 1000 steps × 20 seeds × 6 models ≈ 3.3 CPU-hours.
+- `multiprocessing` over seeds brings this under 1 hour.
+
+**Outputs:**
+- `results/p5_closed_loop.json`;
+- `figures/p5_success.*` (bar chart with Wilson intervals);
+- `figures/p5_time_to_balance.*`;
+- `figures/p5_trajectories.*` (θ, x, u against t for one seed per model).
+
+---
 
 ## Phase 6 — Pre-evaluation demo
 
-Four slides:
-1. The problem and the analytical validation residuals.
-2. DeLaN structure, with learned M and V against the truth.
-3. Rollout and energy-drift plots.
-4. MPPI swing-up live with the analytical model and DeLaN.
+**`scripts/demo.py --part {rollout,swingup} --model {analytical,mlp,delan}`:**
+- **rollout** plots a learned rollout over the MuJoCo trajectory for one test episode, live.
+- **swingup** runs MPPI in dm_control, with the optional interactive viewer `dm_control.viewer`.
 
-Freeze the demo commands in the README. The live demo is 20 % of the grade, so it must run from one command.
+**Slides (4):**
+1. The problem and the Phase 1 validation.
+2. The DeLaN structure, with learned M and V against the truth.
+3. Rollout, energy-drift and OOR plots.
+4. Swing-up success table, plus a live run.
 
-## Phase 7 — After the demo: ablations, report, submission
+The live demo is 20 % of the grade, so it must run from one command each. Freeze those commands in the README.
 
-**Ablations, kept only if time allows** (the core story does not need them):
-- (a) DeLaN with x as an input to M and V, to show what the translational-symmetry prior buys.
-- (b) λ_inv ∈ {0, 0.1, 1}.
-- (c) The measurement-noise run.
-- (d) Closed-loop data efficiency at N = 5.
+---
+
+## Phase 7 — Ablations, report, submission, viva
+
+**Ablations,** kept only if time allows (each linked to an issue or to a claim in the report):
+
+| ablation | question it answers | ISSUES |
+|---|---|---|
+| DeLaN with x as an input to M and V | What does the translational-symmetry prior buy? | — |
+| λ_inv ∈ {0, 0.1, 1} | Does the inverse (EL-residual) loss help? | — |
+| Inverse-density-weighted loss | Does reweighting away from hanging help either model? | D4 |
+| Measurement noise (σ_q = 10⁻³, σ_q̇ = 10⁻²; q̈ from finite differences) | Does the DeLaN advantage survive realistic labels? | D7 |
+| Closed loop at N = 5 (regime B) | Data efficiency in closed loop | — |
 
 **Videos:**
-- `render.py` writes side-by-side MP4s: analytical | MLP | DeLaN on the same seed, and model rollouts overlaid on MuJoCo.
-- The user records or curates the final demo video.
+- `scripts/render.py` writes MP4s: side-by-side swing-ups (analytical | MLP | DeLaN, same seed), and a model rollout overlaid on MuJoCo.
+- The user curates the final demo video.
 
-**Report (PDF):** Introduction / Problem statement / Methodology / Results / Conclusion. It maps onto the instruction items as follows:
-- Items 1–2 → Phase 0 §0 and Phase 1.
-- Item 3 → Phase 2.
-- Item 4 → Phase 3.
-- Item 5 → Phase 4.
-- Item 6 → Phase 5.
-- Item 7, the discussion, covers:
-  - where the prior helps (energy, velocity-OOR, low data);
-  - where it doesn't (angle extrapolation of M and V; the upright instability that punishes every model);
-  - compute cost, since the DeLaN JVP plus solve is slower per evaluation than the MLP;
-  - the links to A2 (EL derivation, URDF-vs-MuJoCo parameter gaps, integrator-order error) and A3 (model-based control).
+**Report (PDF; Introduction / Problem Statement / Methodology / Results / Conclusion),** mapped to the instruction items:
 
-Every figure is generated by a script listed in the README, with readable labels and legends.
+| item | content |
+|---|---|
+| 1. Problem statement | §0 + PART1 §1 |
+| 2. Analytical model | PART1; figures p1_* |
+| 3. Data | PART2; figure p2_coverage; split table; OOR and support definitions; the row-alignment note (D8) and the nominal-parameter note (D9) |
+| 4. Models | PART3; architecture table, losses, seeds; figure p3_learned_structure |
+| 5. Evaluation | PART4; figures p4_* |
+| 6. Closed loop | PART5; figures p5_* |
+| 7. Discussion | where the prior helps (energy, OOR-velocity, low N) and where it doesn't (θ-extrapolation, upright instability); compute cost; limitations (D7, A2); links to A2 (EL derivation, parameter gaps, integrator order) and A3 (model-based control) |
 
-**Submission zip `Robotics_project_group#no.zip`:** report PDF, code, `requirements.txt`, README, `weights/`, `minutes/`, video (or a link).
+**Submission (`Robotics_project_group#no.zip`):**
+- the report PDF;
+- the code, `requirements.txt`, and a README with one command per figure;
+- `weights/`;
+- `minutes/`;
+- the video or a link to it.
 
-**Viva prep (50 %, individual):** every member must be able to derive §0 on a whiteboard:
+**Viva prep:** every member must be able to derive on a whiteboard:
 - M, C and g;
-- the skew-symmetry and energy-balance argument;
-- why ε, softplus and Cholesky are used;
-- how MPPI weights are derived;
-- why the inverse loss alone is degenerate.
+- Ṁ − 2C skew-symmetric, and why the energy identity holds for any learned M and V;
+- the reasons for ε, softplus and Cholesky;
+- the inverse-loss degeneracy and its fix;
+- the random-walk argument for the dataset;
+- the MPPI weight derivation;
+- the Wilson interval.
 
-The `docs/PART*.md` notes double as the viva study guide.
+The `docs/PART*.md` notes and ISSUES.md double as the study guide.
 
 ---
 
 ## Questions for the instructor meeting (book it before the meeting-request cutoff)
 
-1. Is it acceptable for DeLaN's M and V to take θ only (a translational-symmetry prior), while the MLP gets the full (x, sinθ, cosθ, ẋ, θ̇, τ)?
-2. Is it acceptable to include `qfrc_constraint` in the training forces, or should limit rows be dropped?
-3. Is the OOR definition (cosθ > 0, plus a velocity-OOR set) acceptable?
-4. Is the success definition (|θ| < 0.2 rad held for 2 s, no limit hit) acceptable?
+1. Is it acceptable that DeLaN's M and V take θ only (a translational-symmetry prior) while the MLP gets the full input?
+2. Is it acceptable to drop rail-limit rows from training (ISSUES D2)?
+3. Are the extra balance pool S (controller rollouts) and the density-based OOR definitions acceptable?
+4. Is the success definition (|θ| < 0.2 held for 2 s, rail limit never active) acceptable?
 
-## Risks and mitigations
+## Risks
 
 | risk | mitigation |
 |---|---|
-| MPPI tuning takes long | Start on the analytical model right after Phase 1. Use the ESS-adaptive λ, the energy-shaping terminal cost, and the MPPI + LQR fallback. |
-| DeLaN training is unstable (large M⁻¹) | ε floor, scale-matched initialisation, gradient clipping, a float64 retry. |
-| Cart hits the limit in data | Use τ_gen including the constraint force; exclude affected rollout windows. |
-| The MLP diverges in rollouts | This is a result, not a bug. First rule out a normalisation error using the training-set one-step error. |
-| CPU time for closed loop | Batched torch, Δt_plan = 0.02, multiprocessing over seeds. |
-| dm_control install issues | Python 3.12 is supported; `virtualenv` avoids sudo; MUJOCO_GL=egl or osmesa. |
-
-## Verification (end-to-end)
-
-- `pytest tests/` passes:
-  - analytical model matches mj_fullM, qfrc_bias, qacc and mj_inverse to ≲1e-10;
-  - RK4 matches MuJoCo;
-  - the three DeLaN structural tests pass.
-- `python scripts/p4_eval.py` produces the metric tables and figures. The analytical row gives ≈0 error, which sanity-checks the pipeline.
-- `python scripts/p5_mppi.py --model analytical --seeds 0-19` reaches ≈100 % success before any learned model is evaluated. That confirms the controller works, so later differences come from the models.
-- Every figure in the report regenerates from a README command on a clean virtualenv.
+| MPPI fails even with the analytical model | Tune early; ESS-adaptive λ; energy-shaping terminal cost; MPPI + LQR fallback |
+| DeLaN training unstable | ε floor, gradient clipping, damping initialised near 0, float64 retry, data-driven M₁₁ initialisation |
+| `torch.func.jvp` slow or blocked under no_grad in MPPI | Phase 3 test 6; `enable_grad` wrapper; the closed-form 2×2 algebra keeps the cost low |
+| MLP diverges in rollouts | This is a result. First rule out normalisation bugs using the training-set one-step error. |
+| Closed-loop CPU time | Δt_plan = 0.02; batched torch; multiprocessing over seeds |
+| Teammates on other library versions | Pinned `requirements.txt`; the MuJoCo 4.0 API change is documented |
