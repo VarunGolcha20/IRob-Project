@@ -210,6 +210,27 @@ def main():
     res["M_condition"] = float(eig[-1] / eig[0])
     res["damping_time_constants_s"] = {"cart": p.M_tot / p.b_x, "pole": p.J / p.b_th}
 
+    # ---- integrator floor for the energy-drift test ------------------------
+    # Analytical model, tau = 0, D = 0, 10 s, at h and h/2. Each initial state
+    # has xd0 = 0.5 m/s (the cart also translates).
+    undamped = AnalyticalModel(p, damping=False)
+    agl = p.mpl * p.g
+    floor = {}
+    for name, th0, thd0 in (("swing_0.3rad", np.pi - 0.3, 0.0),
+                            ("swing_0.54rad", 3.0, 2.0),
+                            ("rotating", 0.5, 8.0)):
+        row = {"theta0": th0, "thetadot0": thd0, "xdot0": 0.5}
+        for h in (p.dt, p.dt / 2):
+            n = int(round(10.0 / h))
+            qs, qds = rollout(undamped, T([0.0, th0]), T([0.5, thd0]), torch.zeros(n, 2), h)
+            H = undamped.energy(qs, qds)
+            px = undamped.momentum_x(qs, qds)
+            row[f"h={h:g}"] = dict(max_dH_over_mgl=float((H - H[0]).abs().max() / agl),
+                                   max_dpx=float((px - px[0]).abs().max()))
+        row["ratio_h_over_h2"] = row[f"h={p.dt:g}"]["max_dH_over_mgl"] / row[f"h={p.dt / 2:g}"]["max_dH_over_mgl"]
+        floor[name] = row
+    res["integrator_energy_floor_10s"] = floor
+
     RES_DIR.mkdir(parents=True, exist_ok=True)
     (RES_DIR / "p1_validation.json").write_text(json.dumps(res, indent=2))
     print(json.dumps(res, indent=2))

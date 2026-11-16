@@ -20,7 +20,7 @@ This is the PDF's `physics.forward()` recipe, shifted by one step. The shift ali
 - **Generalized force.**
   $$\tau_{gen} = \texttt{qfrc\_actuator} + \texttt{qfrc\_constraint} = \begin{bmatrix}10u + f_{rail} \\ 0\end{bmatrix}.$$
   The rail-limit force is just another generalized force in the Euler–Lagrange equations (PART1 §4, P6), so rows with the limit active are *correct* data.
-- **Training drops the limit rows anyway** (`flatten(..., drop_limit=True)`; [ISSUES.md](ISSUES.md) D2). On those rows the constraint force reaches 53 N, five times the actuator range. It is impulsive, and it never occurs in any test-time use: rollouts exclude windows that touch the rail, and MPPI keeps $\lvert x\rvert < 1.6$ m. Keeping the rows would give the MLP force inputs it never sees in use and would stretch its input normalisation, while DeLaN, being linear in $\tau$, would be unaffected. That asymmetry has nothing to do with the physics prior we want to test. Dropping the rows costs 4 % of R and under 1 % of E. Both models are trained on the same rows.
+- **Training drops the limit rows anyway** (`flatten(..., drop_limit=True)`; [ISSUES.md](ISSUES.md) D2). On those rows the constraint force alone reaches 61 N in R_train, 67 N in E_train and 178 N in S_train (a falling episode hitting the rail), against the actuator's ±10 N; the total force τ_x reaches 53 N in R_train. It is impulsive, and it never occurs in any test-time use: rollouts exclude windows that touch the rail, and MPPI keeps $\lvert x\rvert < 1.6$ m. Keeping the rows would give the MLP force inputs it never sees in use and would stretch its input normalisation, while DeLaN, being linear in $\tau$, would be unaffected. That asymmetry has nothing to do with the physics prior we want to test. Dropping the rows costs 4 % of R and under 1 % of E. Both models are trained on the same rows.
 - **Label audit** (`tests/test_data.py`). Every row of every split satisfies $M\ddot q + C\dot q + g + D\dot q = \tau_{gen}$ to $<10^{-10}$, or $<10^{-3}$ on rail-limit rows, where the constraint solver's tolerance applies (PART1, check 4b). The actuator force is exactly $[10u, 0]$.
 
 ## 2. Pools and splits
@@ -82,7 +82,7 @@ using $\tilde E \approx J_{eff,0}\cdot\tfrac12(\dot\varphi^2 + \omega^2\varphi^2
 | measured, each episode until its first rail contact | 0.01036 (−3 %) |
 | measured, whole episodes | 0.0149 |
 
-The theory holds until the cart reaches the rail, which happens at a median of 4.3 s. After that, the rail impacts (constraint forces up to about 40 N in the recorded data) add energy faster. Even so, the pole never rises above horizontal in any R episode: the largest $\cos\theta$ is −0.229 in R_train. So the upright region has **zero support** in the random data, as the problem statement anticipated. A second dataset is needed.
+The theory holds until the cart reaches the rail, which happens at a median of 4.3 s. After that, the rail impacts (constraint forces up to 61 N in R_train, six times the actuator range) add energy faster. Even so, the pole never rises above horizontal in any R episode: the largest $\cos\theta$ is −0.229 in R_train. So the upright region has **zero support** in the random data, as the problem statement anticipated. A second dataset is needed.
 
 ## 4. Energy-pumping excitation (pool E)
 

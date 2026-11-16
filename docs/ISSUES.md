@@ -10,7 +10,7 @@ This is a running log of things that may be wrong, or that could bias the compar
 | id | issue | severity | status |
 |---|---|---|---|
 | D1 | The max-based support of R is set by rail-impact rows | High | **Fixed** (density support) + In plan (Phase 4 plots) |
-| D2 | Constraint forces (up to 53 N) as force inputs | Medium | **Decided:** limit rows dropped from training |
+| D2 | Constraint forces as force inputs (total τ_x up to 53 N in R, 168 N in S) | Medium | **Decided:** limit rows dropped from training |
 | D3 | The balance region is nearly absent from the data | High | **Fixed:** balance pool S |
 | D4 | Training data dominated by near-hanging states | Medium | In plan (Phase 3/4) |
 | D5 | Energy-drift "rotating" group outside every training set | Medium | **Fixed:** groups rebuilt and labelled |
@@ -47,7 +47,7 @@ This is a running log of things that may be wrong, or that could bias the compar
 - **In plan (Phase 4):** report error against distance to the density support (a heat map and a binned curve), not only the max-based sets.
 
 ### D2. Constraint forces appear as force inputs outside the actuator range — Medium
-- **Evidence:** 140 R_train rows (0.7 %) have |τ_x| > 10 N, up to 53 N. They are the rail-limit rows, where τ_gen = actuator + constraint.
+- **Evidence:** 140 R_train rows (0.7 %) have |τ_x| > 10 N, up to 53 N in total. They are the rail-limit rows, where τ_gen = actuator + constraint. The constraint force alone reaches 61 N in R_train, 67 N in E_train and 178 N in S_train.
 - **Decided:** option (a). Both models train on rows without the limit active (`flatten(..., drop_limit=True)`), at a cost of 4 % of R, 0.6 % of E and 2 % of S.
 - **Why:**
   - No test-time use ever applies a constraint force: rollouts exclude the rail, and MPPI keeps |x| < 1.6 m.
@@ -107,7 +107,7 @@ softplus(0) = 0.69 would give a damping time constant of 1.6 s, against a true 2
 - **In plan (Phase 3):** initialise the raw parameter at softplus⁻¹(10⁻⁴), and report the learned D next to the true values.
 
 ### P2. Fairness of the energy-drift test — Medium
-DeLaN can switch its damping off (D = 0); the MLP cannot. The effect is negligible here, because the true time constants are 2200 s and 17 000 s against a 10 s test, so the true damping explains at most about 0.5 % of energy loss.
+DeLaN can switch its damping off (D = 0); the MLP cannot. The effect is negligible here, because the true time constants are 2200 s and 17 000 s against a 10 s test, so over 10 s the true damping removes at most 0.9 % of the cart's kinetic energy and 0.12 % of the pole's (PART1 P5).
 - **In plan (Phase 4):** state this, and also report DeLaN's drift with its learned D kept on.
 
 ### A1. Rail-limit q̈ labels deviate by up to 2×10⁻⁴ m/s² — Low, moot

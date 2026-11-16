@@ -43,7 +43,7 @@ Coordinates: q = (x, θ). **θ = 0 is upright** and θ = π is hanging. τ = [10
 | J = I_c + m_p l² | 0.0344246 kg m² | thin-rod value 0.03333 (−3.17 %) |
 | b_x, b_θ | 5×10⁻⁴, 2×10⁻⁶ | damping time constants 2200 s and 17 212 s ≫ 10 s |
 | h, integrator | 0.01 s, RK4 | our RK4 = MuJoCo's to 2×10⁻¹⁵ |
-| rail | ±1.8 m, soft limit | `qfrc_constraint` up to 53 N in the data |
+| rail | ±1.8 m, soft limit | `qfrc_constraint` up to 61 N (R), 67 N (E), 178 N (S) in the data |
 | M eigenvalues | 0.032 … 1.10, condition number 34 | ⇒ ε = 10⁻³ |
 | ω (hanging), λ (upright) | 3.906 rad/s, period 1.609 s; λ = +3.906 /s, errors double every 0.177 s | ⇒ 2 s rollouts near upright amplify errors about 2400× |
 | separatrix speed at the bottom | 7.81 rad/s | ⇒ the boundary between the drift groups |

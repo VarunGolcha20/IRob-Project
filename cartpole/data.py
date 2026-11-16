@@ -219,7 +219,7 @@ def flatten(episodes: list[dict], drop_limit: bool = False) -> dict:
 
     drop_limit=True removes rows where the rail limit is active. Training uses
     this (docs/ISSUES.md D2): limit rows carry impulsive constraint forces up to
-    53 N, five times the actuator range, which no test-time use (rollouts away
+    61 N in R_train (178 N in S_train), far above the +-10 N actuator range, which no test-time use (rollouts away
     from the rail, MPPI with |x| < 1.6 m) ever sees. Both models are trained on
     the same rows, so the comparison stays fair.
     """
