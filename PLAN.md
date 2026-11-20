@@ -12,11 +12,6 @@ The course project (IROB 2026, `IROB2026_Project_instructions (1) (1).pdf`) requ
 - Every risk found goes into [docs/ISSUES.md](docs/ISSUES.md), with its evidence, impact and status.
 - The final report shows results only. Code-generated plots are fine; the user records the videos.
 
-**Environment:**
-- venv at `~/irob_proj` (Python 3.12, dm_control 1.0.51, MuJoCo 4.0.0, torch 2.15 CPU). Pinned versions are in `requirements.txt`.
-- Always run commands as `env -u PYTHONPATH ...`, because ROS's path leaks into the venv.
-- The machine has 8 CPU cores and no GPU.
-
 ## Status
 
 | phase | content | status |
@@ -24,7 +19,7 @@ The course project (IROB 2026, `IROB2026_Project_instructions (1) (1).pdf`) requ
 | 0 | Environment, repo skeleton | **Done** |
 | 1 | Analytical EL model, validated against MuJoCo | **Done**: [docs/PART1_EL.md](docs/PART1_EL.md) |
 | 2 | Datasets R / E / S / U, label audit, support definition | **Done**: [docs/PART2_DATA.md](docs/PART2_DATA.md) |
-| 3 | MLP + DeLaN, training | **In progress**: models and tests done; λ_inv selected (= 1); main grid relaunched 20:08 (5/34 done before the pause; see the Phase 3 progress table) |
+| 3 | MLP + DeLaN, training | **In progress**: models and tests done; λ_inv selected (= 1); main grid of 34 runs training (see the Phase 3 progress table) |
 | 4 | Open-loop evaluation | — |
 | 5 | MPPI swing-up and balance; tuning can start now with the analytical model | — |
 | 6 | Pre-evaluation demo | — |
@@ -58,7 +53,7 @@ Coordinates: q = (x, θ). **θ = 0 is upright** and θ = π is hanging. τ = [10
 
 ## Phases 0–2 — done (summary)
 
-- **Phase 0:** the venv, pinned requirements, the repo layout, and one model interface `model.qdd(q, qd, tau)` shared by every model, the RK4 integrator and MPPI.
+- **Phase 0:** pinned requirements, the repo layout, and one model interface `model.qdd(q, qd, tau)` shared by every model, the RK4 integrator and MPPI.
 - **Phase 1:**
   - [cartpole/params.py](cartpole/params.py) reads every parameter from MuJoCo.
   - [cartpole/analytical.py](cartpole/analytical.py) provides the analytical model and a thin-rod variant.
@@ -94,12 +89,12 @@ Coordinates: q = (x, θ). **θ = 0 is upright** and θ = π is hanging. τ = [10
 | DeLaN: Cholesky M + εI, V-net, softplus damping (init 10⁻⁴), hand-coded forward-mode θ-derivatives, 34 310 params | [cartpole/models/delan.py](cartpole/models/delan.py) | **Done** |
 | Structural tests (8; whole suite 40/40 passing) | [tests/test_models.py](tests/test_models.py) | **Done** |
 | Training loop (normalised loss, scale-invariant inverse loss, cosine lr, clipping, early stopping) | [cartpole/train.py](cartpole/train.py) | **Done** |
-| Run script: λ_inv selection + 34-run grid; resumable, detached, `--threads` option | [scripts/p3_train.py](scripts/p3_train.py) | **Done** |
+| Run script: λ_inv selection + 34-run grid; resumable per run | [scripts/p3_train.py](scripts/p3_train.py) | **Done** |
 | Stage 1: λ_inv selection (6 DeLaN runs) | `results/p3_select.json` | **Done**: λ_inv = 1 (thin margin, ISSUES T2) |
-| Stage 2: main grid (34 runs) | `weights/`, `results/p3_train.log` | **Running** (paused at 5/34 at 18:46; relaunched 20:08 with 4 workers × 1 thread, log `results/p3_train_main.log`) |
+| Stage 2: main grid (34 runs) | `weights/` | **Running** |
 | Identification + learned-structure + training-curve figures | [scripts/p3_structure.py](scripts/p3_structure.py) | Written; runs after training |
 | Math note | [docs/PART3_MODELS.md](docs/PART3_MODELS.md) | After results (so every number comes from a results file) |
-| Issues found | [docs/ISSUES.md](docs/ISSUES.md) | P1 fixed; T1 mitigated; T2 decided; T3 open; T4 partly fixed |
+| Issues found | [docs/ISSUES.md](docs/ISSUES.md) | P1 fixed; T1 mitigated; T2 decided |
 
 **Stage 1 result: λ_inv selection** (best validation loss, DeLaN, seed 0):
 
@@ -111,39 +106,28 @@ Coordinates: q = (x, θ). **θ = 0 is upright** and θ = π is hanging. τ = [10
 
 The margin is 12 % on one seed, and the λ ordering is non-monotone on B20, so the gain is not shown to be significant. The pre-registered rule is kept (ISSUES T2).
 
-**Stage 2 state when paused** (main grid, λ_inv = 1 for DeLaN):
+**Stage 2: runs finished so far** (main grid, λ_inv = 1 for DeLaN):
 
-| run | best validation loss | best step / stopped at | time |
-|---|---|---|---|
-| delan_A20_s0_inv1 (reused from stage 1) | 7.9×10⁻⁸ | 29 500 / 30 000 | 29 min |
-| delan_B20_s0_inv1 (reused from stage 1) | 1.84×10⁻⁷ | 29 000 / 30 000 | 20 min |
-| delan_A1_s1_inv1 | 5.0×10⁻⁵ | 15 000 / 20 000 (early stop) | 20 min |
-| delan_A1_s2_inv1 | 8.7×10⁻⁵ | 18 000 / 23 000 (early stop) | 21 min |
-| delan_A1_s3_inv1 | 3.1×10⁻⁵ | 15 500 / 20 500 (early stop) | 20 min |
+| run | best validation loss | best step / stopped at |
+|---|---|---|
+| delan_A20_s0_inv1 (reused from stage 1) | 7.9×10⁻⁸ | 29 500 / 30 000 |
+| delan_B20_s0_inv1 (reused from stage 1) | 1.84×10⁻⁷ | 29 000 / 30 000 |
+| delan_A1_s1_inv1 | 5.0×10⁻⁵ | 15 000 / 20 000 (early stop) |
+| delan_A1_s2_inv1 | 8.7×10⁻⁵ | 18 000 / 23 000 (early stop) |
+| delan_A1_s3_inv1 | 3.1×10⁻⁵ | 15 500 / 20 500 (early stop) |
 
-- **Remaining:** 29 runs. These are 12 DeLaN (A1 s0 and s4, A5 ×3, A20 s1–2, B5 ×3, B20 s1–2) and all 17 MLP runs.
-- **Time left at relaunch:** with 4 workers × 1 thread (T3 benchmark), about 27 min per DeLaN run and 7 min per MLP run, so 1 h 45 min to 2 h of wall time if no run stops early.
+- **Remaining:** 29 runs (in training). These are 12 DeLaN (A1 s0 and s4, A5 ×3, A20 s1–2, B5 ×3, B20 s1–2) and all 17 MLP runs.
 - **Early observations, to be confirmed by Phase 4:**
   - With 20 episodes, DeLaN's validation error is about 10⁻⁷ (normalised MSE), i.e. q̈ errors of about 0.02 % of each axis's spread.
   - With 1 episode, the error is about 400× worse, and early stopping triggers at about 20 000 steps.
   - Every N = 20 run was still improving at 30 000 steps, so the step budget, not convergence, sets the final accuracy.
 
-**Relaunch steps** (steps 1 and 3 done at 20:08):
-1. **(T3, done)** Benchmarked `--threads 1` against `--threads 2` with 4 workers for 1000 steps. One thread per worker is faster (DeLaN +9 %, MLP +48 %), so it was chosen.
-2. **(T4, optional, skipped for this run)** Add mid-run checkpointing (every 2000 steps: model, optimiser, scheduler, RNG) if more stops are expected.
-3. **(Done)** Relaunched detached. The finished runs are skipped:
-   ```bash
-   cd ~/Desktop/IRob/project
-   setsid nohup env -u PYTHONPATH ~/irob_proj/bin/python -u scripts/p3_train.py --stage main --workers 4 --threads 1 \
-     > results/p3_train_main.log 2>&1 < /dev/null &
-   ```
-4. Afterwards, run `python scripts/p3_structure.py` (identification and figures), then write docs/PART3_MODELS.md.
+**Next:** run `scripts/p3_structure.py` (identification and figures), then write docs/PART3_MODELS.md.
 
 **Changes from the original Phase 3 plan, with reasons:**
 - **θ-derivatives.** Hand-coded forward-mode propagation replaced `torch.func.jvp`. Each layer carries (h, dh/dθ), with dz = W dh and d softplus(z) = sigmoid(z) dz. It costs the same as one JVP, is plain differentiable torch for training, and works under `torch.no_grad()`, which removes the jvp-under-no_grad risk for MPPI. It is checked against autograd to 10⁻¹⁰.
 - **Plumbing test (test 5).** A fixed loss of 10⁻⁴ is replaced by "a 1000× drop and below 10⁻²". At a constant lr of 10⁻³ DeLaN's single-batch loss is non-monotone (ISSUES T1), so the test checks the ability to fit, not the speed.
-- **Measured cost per gradient step** (batch 512, 2 threads, machine otherwise idle): MLP 2.8 ms, DeLaN 7.2 ms, DeLaN with the inverse loss 14.4 ms. After only 1000 steps on A20, the validation loss is already 5.2×10⁻⁴ for the MLP and 3.2×10⁻⁴ for DeLaN. Under the full 4-worker load the cost is about 4.6× higher (ISSUES T3).
-- **Robust long runs.** The run script is resumable per run and is launched detached (`setsid nohup`) after the first launch died with the editor (ISSUES T4).
+- **Relative cost per gradient step** (batch 512): DeLaN costs about 2.6× the MLP, and the inverse loss doubles DeLaN's cost again. After only 1000 steps on A20, the validation loss is already 5.2×10⁻⁴ for the MLP and 3.2×10⁻⁴ for DeLaN.
 
 **Math note:** [docs/PART3_MODELS.md](docs/PART3_MODELS.md). It covers:
 - the DeLaN derivation, with Cq̇ from hand-coded forward-mode θ-derivatives;
@@ -214,8 +198,7 @@ $$\mathcal L_{inv} = \big(\tfrac{\hat\tau_x - \tau_x}{\sigma_\tau}\big)^2 + \big
   - regime A: (5 + 3 + 3) seeds × 2 models = 22;
   - regime B, N = 20: 3 seeds × 2 models = 6;
   - optional regime B, N = 5: 6.
-  - About 30–35 runs in total, at roughly 1–3 min each on CPU.
-- **Parallelism:** 4 processes with `torch.set_num_threads(1)` each. Two threads per worker oversubscribed the 4 physical cores (ISSUES T3).
+  - 34 runs in total.
 - **Saved per run:** `weights/{model}_{A|B}{N}_s{seed}.pt`, holding the state dict, the config, the normalisation stats, the best validation loss and the step count.
 
 ### 3.5 Tests — `tests/test_models.py`
@@ -337,10 +320,6 @@ All of these are implemented and pass.
 - **Wilson 95 % interval** on each success rate. With n = 20, 18/20 gives [0.70, 0.97], so claim only differences the intervals support.
 - A cumulative "fraction balanced against time" curve per model (Kaplan–Meier style, where failures are censored at 10 s).
 
-**Compute:**
-- About 0.1 s per step × 1000 steps × 20 seeds × 6 models ≈ 3.3 CPU-hours.
-- `multiprocessing` over seeds brings this under 1 hour.
-
 **Outputs:**
 - `results/p5_closed_loop.json`;
 - `figures/p5_success.*` (bar chart with Wilson intervals);
@@ -428,5 +407,4 @@ The `docs/PART*.md` notes and ISSUES.md double as the study guide.
 | DeLaN training unstable | ε floor, gradient clipping, damping initialised near 0, float64 retry, data-driven M₁₁ initialisation |
 | ~~`torch.func.jvp` slow or blocked under no_grad in MPPI~~ | **Resolved:** hand-coded forward-mode derivatives work under no_grad (test 6) |
 | MLP diverges in rollouts | This is a result. First rule out normalisation bugs using the training-set one-step error. |
-| Closed-loop CPU time | Δt_plan = 0.02; batched torch; multiprocessing over seeds |
-| Teammates on other library versions | Pinned `requirements.txt`; the MuJoCo 4.0 API change is documented |
+| Closed-loop compute cost | Δt_plan = 0.02; batched rollouts of all K samples |
