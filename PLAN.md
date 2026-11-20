@@ -24,7 +24,7 @@ The course project (IROB 2026, `IROB2026_Project_instructions (1) (1).pdf`) requ
 | 0 | Environment, repo skeleton | **Done** |
 | 1 | Analytical EL model, validated against MuJoCo | **Done**: [docs/PART1_EL.md](docs/PART1_EL.md) |
 | 2 | Datasets R / E / S / U, label audit, support definition | **Done**: [docs/PART2_DATA.md](docs/PART2_DATA.md) |
-| 3 | MLP + DeLaN, training | **In progress**: models and tests done, full training grid running (see the Phase 3 progress table) |
+| 3 | MLP + DeLaN, training | **In progress, paused**: models and tests done; λ_inv selected (= 1); main grid 5/34 runs done (see the Phase 3 progress table) |
 | 4 | Open-loop evaluation | — |
 | 5 | MPPI swing-up and balance; tuning can start now with the analytical model | — |
 | 6 | Pre-evaluation demo | — |
@@ -94,15 +94,56 @@ Coordinates: q = (x, θ). **θ = 0 is upright** and θ = π is hanging. τ = [10
 | DeLaN: Cholesky M + εI, V-net, softplus damping (init 10⁻⁴), hand-coded forward-mode θ-derivatives, 34 310 params | [cartpole/models/delan.py](cartpole/models/delan.py) | **Done** |
 | Structural tests (8; whole suite 40/40 passing) | [tests/test_models.py](tests/test_models.py) | **Done** |
 | Training loop (normalised loss, scale-invariant inverse loss, cosine lr, clipping, early stopping) | [cartpole/train.py](cartpole/train.py) | **Done** |
-| Run script: λ_inv selection + 34-run grid, 4 workers | [scripts/p3_train.py](scripts/p3_train.py) | **Running** |
+| Run script: λ_inv selection + 34-run grid; resumable, detached, `--threads` option | [scripts/p3_train.py](scripts/p3_train.py) | **Done** |
+| Stage 1: λ_inv selection (6 DeLaN runs) | `results/p3_select.json` | **Done**: λ_inv = 1 (thin margin, ISSUES T2) |
+| Stage 2: main grid (34 runs) | `weights/`, `results/p3_train.log` | **Paused at 5/34** (stopped 18:46) |
 | Identification + learned-structure + training-curve figures | [scripts/p3_structure.py](scripts/p3_structure.py) | Written; runs after training |
 | Math note | [docs/PART3_MODELS.md](docs/PART3_MODELS.md) | After results (so every number comes from a results file) |
-| Issues found | [docs/ISSUES.md](docs/ISSUES.md) | P1 fixed; T1 (non-monotone DeLaN loss at lr 10⁻³) mitigated |
+| Issues found | [docs/ISSUES.md](docs/ISSUES.md) | P1 fixed; T1 mitigated; T2 decided; T3 open; T4 partly fixed |
+
+**Stage 1 result: λ_inv selection** (best validation loss, DeLaN, seed 0):
+
+| | λ = 0 | λ = 0.1 | λ = 1 |
+|---|---|---|---|
+| A20 | 1.04×10⁻⁷ | 9.1×10⁻⁸ | 7.9×10⁻⁸ |
+| B20 | 1.94×10⁻⁷ | 2.23×10⁻⁷ | 1.84×10⁻⁷ |
+| mean | 1.49×10⁻⁷ | 1.57×10⁻⁷ | **1.31×10⁻⁷ → chosen** |
+
+The margin is 12 % on one seed, and the λ ordering is non-monotone on B20, so the gain is not shown to be significant. The pre-registered rule is kept (ISSUES T2).
+
+**Stage 2 state when paused** (main grid, λ_inv = 1 for DeLaN):
+
+| run | best validation loss | best step / stopped at | time |
+|---|---|---|---|
+| delan_A20_s0_inv1 (reused from stage 1) | 7.9×10⁻⁸ | 29 500 / 30 000 | 29 min |
+| delan_B20_s0_inv1 (reused from stage 1) | 1.84×10⁻⁷ | 29 000 / 30 000 | 20 min |
+| delan_A1_s1_inv1 | 5.0×10⁻⁵ | 15 000 / 20 000 (early stop) | 20 min |
+| delan_A1_s2_inv1 | 8.7×10⁻⁵ | 18 000 / 23 000 (early stop) | 21 min |
+| delan_A1_s3_inv1 | 3.1×10⁻⁵ | 15 500 / 20 500 (early stop) | 20 min |
+
+- **Remaining:** 29 runs. These are 12 DeLaN (A1 s0 and s4, A5 ×3, A20 s1–2, B5 ×3, B20 s1–2) and all 17 MLP runs.
+- **Time left:** at the observed speed (about 25 min per DeLaN run, about 6.5 min per MLP run, 4 workers), about 1 h 45 min of wall time. It will be less if `--threads 1` proves faster (T3).
+- **Early observations, to be confirmed by Phase 4:**
+  - With 20 episodes, DeLaN's validation error is about 10⁻⁷ (normalised MSE), i.e. q̈ errors of about 0.02 % of each axis's spread.
+  - With 1 episode, the error is about 400× worse, and early stopping triggers at about 20 000 steps.
+  - Every N = 20 run was still improving at 30 000 steps, so the step budget, not convergence, sets the final accuracy.
+
+**Before relaunching:**
+1. **(T3)** Benchmark `--threads 1` against `--threads 2` with 4 workers for 1000 steps, and use the faster.
+2. **(T4, optional)** Add mid-run checkpointing (every 2000 steps: model, optimiser, scheduler, RNG) if more stops are expected.
+3. Relaunch detached. The finished runs are skipped:
+   ```bash
+   cd ~/Desktop/IRob/project
+   setsid nohup env -u PYTHONPATH ~/irob_proj/bin/python -u scripts/p3_train.py --stage main --workers 4 --threads <1|2> \
+     > results/p3_train_main.log 2>&1 < /dev/null &
+   ```
+4. Afterwards, run `python scripts/p3_structure.py` (identification and figures), then write docs/PART3_MODELS.md.
 
 **Changes from the original Phase 3 plan, with reasons:**
 - **θ-derivatives.** Hand-coded forward-mode propagation replaced `torch.func.jvp`. Each layer carries (h, dh/dθ), with dz = W dh and d softplus(z) = sigmoid(z) dz. It costs the same as one JVP, is plain differentiable torch for training, and works under `torch.no_grad()`, which removes the jvp-under-no_grad risk for MPPI. It is checked against autograd to 10⁻¹⁰.
 - **Plumbing test (test 5).** A fixed loss of 10⁻⁴ is replaced by "a 1000× drop and below 10⁻²". At a constant lr of 10⁻³ DeLaN's single-batch loss is non-monotone (ISSUES T1), so the test checks the ability to fit, not the speed.
-- **Measured cost per gradient step** (batch 512, 2 threads): MLP 2.8 ms, DeLaN 7.2 ms, DeLaN with the inverse loss 14.4 ms. After only 1000 steps on A20, the validation loss is already 5.2×10⁻⁴ for the MLP and 3.2×10⁻⁴ for DeLaN.
+- **Measured cost per gradient step** (batch 512, 2 threads, machine otherwise idle): MLP 2.8 ms, DeLaN 7.2 ms, DeLaN with the inverse loss 14.4 ms. After only 1000 steps on A20, the validation loss is already 5.2×10⁻⁴ for the MLP and 3.2×10⁻⁴ for DeLaN. Under the full 4-worker load the cost is about 4.6× higher (ISSUES T3).
+- **Robust long runs.** The run script is resumable per run and is launched detached (`setsid nohup`) after the first launch died with the editor (ISSUES T4).
 
 **Math note:** [docs/PART3_MODELS.md](docs/PART3_MODELS.md). It covers:
 - the DeLaN derivation, with Cq̇ from hand-coded forward-mode θ-derivatives;
@@ -331,7 +372,7 @@ The live demo is 20 % of the grade, so it must run from one command each. Freeze
 | ablation | question it answers | ISSUES |
 |---|---|---|
 | DeLaN with x as an input to M and V | What does the translational-symmetry prior buy? | — |
-| λ_inv ∈ {0, 0.1, 1} | Does the inverse (EL-residual) loss help? | — |
+| λ_inv ∈ {0, 0.1, 1}, plus λ = 0 at seeds 1–2 for A20 and B20 | Does the inverse (EL-residual) loss help beyond seed noise? Stage 1 margin: 12 %, one seed | T2 |
 | Inverse-density-weighted loss | Does reweighting away from hanging help either model? | D4 |
 | Measurement noise (σ_q = 10⁻³, σ_q̇ = 10⁻²; q̈ from finite differences) | Does the DeLaN advantage survive realistic labels? | D7 |
 | Closed loop at N = 5 (regime B) | Data efficiency in closed loop | — |

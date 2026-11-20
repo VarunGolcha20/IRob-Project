@@ -8,7 +8,10 @@ loss. Stage "main": the full grid with that lam_inv.
     both models -> 34 runs
 Runs execute in parallel worker processes, each with 2 torch threads.
 
-Usage:  python scripts/p3_train.py [--stage select|main|all] [--workers 4] [--steps 30000]
+Usage:  python scripts/p3_train.py [--stage select|main|all] [--workers 4] [--threads 2] [--steps 30000]
+Resumable: runs whose weights/<name>.pt already exists are skipped, so an
+interrupted job can simply be relaunched. Long jobs should run detached:
+    setsid nohup python -u scripts/p3_train.py > results/p3_train.log 2>&1 < /dev/null &
 Outputs: weights/*.pt, results/p3_select.json, results/p3_training.json
 """
 from __future__ import annotations
@@ -30,7 +33,15 @@ GRID = [("A", 1, range(5)), ("A", 5, range(3)), ("A", 20, range(3)),
 
 
 def _worker(cfg):
-    from cartpole.train import train_one
+    import torch
+    from cartpole.plotting import WEIGHT_DIR
+    from cartpole.train import run_name, train_one
+    path = WEIGHT_DIR / f"{run_name(cfg)}.pt"
+    if path.exists():          # resumable: a finished run is never repeated
+        ck = torch.load(path, weights_only=False)
+        print(f"skip {ck['name']:<22} (already trained, best_val {ck['best_val']:.3e})", flush=True)
+        return {k: v for k, v in ck.items() if k not in ("state_dict", "stats", "history")}
+    print(f"start {run_name(cfg):<22} {time.strftime('%H:%M:%S')}", flush=True)
     t = time.time()
     r = train_one(cfg)
     print(f"done {r['name']:<22} best_val {r['best_val']:.3e} at {r['best_step']:>5} "
@@ -45,7 +56,7 @@ def run_all(cfgs, workers):
 
 
 def stage_select(args):
-    cfgs = [dict(kind="delan", regime=reg, N=20, seed=0, steps=args.steps, lam_inv=lam)
+    cfgs = [dict(kind="delan", regime=reg, N=20, seed=0, steps=args.steps, lam_inv=lam, threads=args.threads)
             for reg in ("A", "B") for lam in LAMS]
     res = run_all(cfgs, args.workers)
     table = {f"{r['cfg']['regime']}20_lam{r['cfg']['lam_inv']:g}": r["best_val"] for r in res}
@@ -62,16 +73,20 @@ def stage_main(args, lam):
     for reg, N, seeds in GRID:
         for s in seeds:
             # longest jobs (DeLaN) first, so the pool finishes evenly
-            cfgs.append(dict(kind="delan", regime=reg, N=N, seed=s, steps=args.steps, lam_inv=lam))
+            cfgs.append(dict(kind="delan", regime=reg, N=N, seed=s, steps=args.steps, lam_inv=lam,
+                             threads=args.threads))
     for reg, N, seeds in GRID:
         for s in seeds:
-            cfgs.append(dict(kind="mlp", regime=reg, N=N, seed=s, steps=args.steps))
+            cfgs.append(dict(kind="mlp", regime=reg, N=N, seed=s, steps=args.steps, threads=args.threads))
     # lam > 0 runs from the selection stage with seed 0 at N = 20 are reused.
     from cartpole.train import run_name
     from cartpole.plotting import WEIGHT_DIR
-    todo = [c for c in cfgs if not (WEIGHT_DIR / f"{run_name(c)}.pt").exists() or args.retrain]
-    res = run_all(todo, args.workers) if todo else []
-    print(f"{len(res)} runs trained, {len(cfgs) - len(todo)} reused")
+    if args.retrain:
+        for c in cfgs:
+            (WEIGHT_DIR / f"{run_name(c)}.pt").unlink(missing_ok=True)
+    n_done = sum((WEIGHT_DIR / f"{run_name(c)}.pt").exists() for c in cfgs)
+    print(f"main grid: {len(cfgs)} runs, {n_done} already trained", flush=True)
+    run_all(cfgs, args.workers)
 
 
 def summarise(lam):
@@ -97,6 +112,7 @@ def main():
     ap.add_argument("--stage", default="all", choices=["select", "main", "all"])
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--steps", type=int, default=30_000)
+    ap.add_argument("--threads", type=int, default=2, help="torch threads per worker")
     ap.add_argument("--retrain", action="store_true")
     args = ap.parse_args()
     RES_DIR.mkdir(parents=True, exist_ok=True)

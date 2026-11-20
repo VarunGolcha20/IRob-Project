@@ -1,0 +1,41 @@
+start delan_A20_s0           17:47:20
+start delan_A20_s0_inv1      17:47:20
+start delan_A20_s0_inv0.1    17:47:20
+start delan_B20_s0           17:47:21
+done delan_A20_s0           best_val 1.041e-07 at 28000 (stopped 30000) 1001s
+start delan_B20_s0_inv0.1    18:04:01
+done delan_B20_s0           best_val 1.944e-07 at 29500 (stopped 30000) 1011s
+start delan_B20_s0_inv1      18:04:11
+done delan_A20_s0_inv1      best_val 7.925e-08 at 29500 (stopped 30000) 1755s
+done delan_A20_s0_inv0.1    best_val 9.112e-08 at 28000 (stopped 30000) 1762s
+done delan_B20_s0_inv0.1    best_val 2.228e-07 at 28000 (stopped 30000) 1224s
+done delan_B20_s0_inv1      best_val 1.837e-07 at 29000 (stopped 30000) 1218s
+{
+  "val_loss": {
+    "A20_lam0": 1.0407016048930018e-07,
+    "A20_lam0.1": 9.111938226169514e-08,
+    "A20_lam1": 7.925437728317775e-08,
+    "B20_lam0": 1.9441509232612468e-07,
+    "B20_lam0.1": 2.227948685631626e-07,
+    "B20_lam1": 1.8368967933699026e-07
+  },
+  "mean_over_regimes": {
+    "0": 1.4924262640771243e-07,
+    "0.1": 1.5695712541242886e-07,
+    "1": 1.31472028310084e-07
+  },
+  "chosen_lam_inv": 1.0
+}
+main grid: 34 runs, 2 already trained
+start delan_A1_s2_inv1       18:24:36
+start delan_A1_s1_inv1       18:24:37
+start delan_A1_s0_inv1       18:24:37
+start delan_A1_s3_inv1       18:24:37
+done delan_A1_s3_inv1       best_val 3.135e-05 at 15500 (stopped 20500) 1174s
+start delan_A1_s4_inv1       18:44:11
+done delan_A1_s1_inv1       best_val 4.975e-05 at 15000 (stopped 20000) 1178s
+start delan_A5_s0_inv1       18:44:14
+done delan_A1_s2_inv1       best_val 8.742e-05 at 18000 (stopped 23000) 1288s
+start delan_A5_s1_inv1       18:46:05
+/usr/lib/python3.12/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 6 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

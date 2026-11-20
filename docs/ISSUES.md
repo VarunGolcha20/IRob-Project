@@ -21,6 +21,9 @@ This is a running log of things that may be wrong, or that could bias the compar
 | D10 | One falling S episode inflates any max-based velocity support | Medium | **Fixed** (same density support as D1) |
 | P1 | Initialising DeLaN's damping too high | High | **Fixed:** raw parameter initialised at softplus⁻¹(10⁻⁴) |
 | T1 | DeLaN training loss is non-monotone at lr = 10⁻³ | Medium | Mitigated (cosine decay, clipping, best checkpoint); check the curves |
+| T2 | λ_inv = 1 chosen on a thin, single-seed margin, at 2× the cost | Medium | **Decided:** keep λ_inv = 1 (rule fixed in advance); report the margin honestly; λ = 0 seeds in Phase 7 |
+| T3 | Training is ~4.6× slower than benchmarked (CPU oversubscription) | Medium | Open: benchmark `--threads 1` before relaunching |
+| T4 | No mid-run checkpoints: stopping loses in-progress runs | Medium | Partly fixed (resumable per run, detached launch); mid-run checkpointing optional |
 | P2 | Energy-drift test asymmetry (DeLaN can set D = 0) | Medium | In plan (Phase 4) |
 | A1 | q̈ labels off by 2×10⁻⁴ on rail-limit rows | Low | Moot (limit rows dropped) |
 | A2 | No model includes the rail limit | Medium | In plan (Phases 4–5) |
@@ -113,6 +116,35 @@ softplus(0) = 0.69 would give a damping time constant of 1.6 s, against a true 2
 - **Mitigation:** cosine decay of the lr to 10⁻⁵, gradient clipping at 10, and keeping the best validation checkpoint (`cartpole/train.py`). The plumbing test now requires a 1000× loss drop instead of a fixed 10⁻³ (`tests/test_models.py`).
 - **Action (Phase 3 results):** inspect `figures/p3_training_curves`. Identification is judged only over the training angles, and regime A (θ ≈ π only) is expected to identify M less well than regime B.
 
+### T2. λ_inv = 1 chosen on a thin, single-seed margin — Medium, decided
+- **Evidence** (`results/p3_select.json`, DeLaN, seed 0, best validation loss):
+
+  | | λ = 0 | λ = 0.1 | λ = 1 |
+  |---|---|---|---|
+  | A20 | 1.04×10⁻⁷ | 9.1×10⁻⁸ | 7.9×10⁻⁸ |
+  | B20 | 1.94×10⁻⁷ | 2.23×10⁻⁷ | 1.84×10⁻⁷ |
+  | mean | 1.49×10⁻⁷ | 1.57×10⁻⁷ | **1.31×10⁻⁷** |
+
+  λ = 1 wins by 12 % on the mean. But λ = 0.1 is *worse* than λ = 0 on B20, so the ordering is not monotone, and seed-to-seed noise is clearly of this size. The inverse loss also doubles DeLaN's cost per step (14.4 against 7.2 ms when benchmarked alone).
+- **Decision:** keep λ_inv = 1. The selection rule (lowest mean validation loss over A20 and B20) was fixed in advance in PLAN 3.3, and changing it after seeing the numbers would be a garden-of-forking-paths choice.
+- **Report:** state that the EL-residual (inverse) loss gives at most a ~12 % lower validation loss on one seed, which is not shown to be significant, and that it costs 2× compute.
+- **In plan (Phase 7):** train λ = 0 at seeds 1–2 for A20 and B20 (4 runs). That gives a real seed-to-seed spread to compare the λ effect against.
+
+### T3. Training is ~4.6× slower than benchmarked — Medium, open
+- **Evidence:** a DeLaN (λ = 0) run took 1001 s for 30 000 steps, i.e. 33 ms per step, against 7.2 ms benchmarked alone with 2 threads. The machine has 4 physical cores and 8 hardware threads (i5-11320H). 4 workers × 2 torch threads = 8 threads on 4 cores, so each worker gets about one core and hyper-threading adds little to dense matrix work.
+- **Impact:** the full grid takes about 4–5 h of wall time instead of about 1 h.
+- **Action (before relaunch):** benchmark 1000 steps with `--workers 4 --threads 1` against `--threads 2`, then relaunch with the faster setting. `scripts/p3_train.py` now has a `--threads` option. The thread count changes only floating-point summation order, not the method, and run names do not depend on it, so finished runs stay valid.
+
+### T4. No mid-run checkpoints — Medium, partly fixed
+- **Evidence:**
+  - The first launch (17:40) died when VS Code was closed, because it was a child of the editor's shell. Nothing had finished, so about 5 min were lost.
+  - The deliberate stop at 18:46 lost 4 in-progress runs, including DeLaN A1 seed 0 after 21.5 min.
+- **Fixed:**
+  - Long jobs now run detached (`setsid nohup … &`), in their own session, so closing the editor cannot kill them.
+  - `scripts/p3_train.py` skips any run whose `weights/<name>.pt` exists, so relaunching resumes at the granularity of whole runs.
+  - Every start and finish is logged unbuffered to `results/p3_train.log`.
+- **Optional (before relaunch):** save model, optimiser, scheduler and RNG states every 2000 steps, so a resumed run continues bit-for-bit. Worth it only if more stops are expected.
+
 ### P2. Fairness of the energy-drift test — Medium
 DeLaN can switch its damping off (D = 0); the MLP cannot. The effect is negligible here, because the true time constants are 2200 s and 17 000 s against a 10 s test, so over 10 s the true damping removes at most 0.9 % of the cart's kinetic energy and 0.12 % of the pole's (PART1 P5).
 - **In plan (Phase 4):** state this, and also report DeLaN's drift with its learned D kept on.
@@ -135,3 +167,4 @@ This came from the constraint solver's tolerance (PART1, check 4b). The rows are
 | `__pycache__/*.pyc` was committed in the Phase 0/1 commit | Removed from the index; `.gitignore` added. |
 | Disk space was low during setup | Torch was installed without pip's cache. Keep weights and videos small. |
 | Pumping gains changed from 1.5 to 3 after a test | Documented in PART2 §4. |
+| First training launch killed by closing VS Code | Fixed: detached launch with `setsid nohup` (T4). |
