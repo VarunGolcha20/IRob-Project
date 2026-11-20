@@ -10,6 +10,7 @@ The course project (IROB 2026, `IROB2026_Project_instructions (1) (1).pdf`) requ
 - Each phase starts with a math note in `docs/PARTn_*.md`.
 - Code follows, then a numeric verification against MuJoCo, then pytest checks.
 - Every risk found goes into [docs/ISSUES.md](docs/ISSUES.md), with its evidence, impact and status.
+- Every result goes into [docs/RESULTS.md](docs/RESULTS.md) when its script finishes, with the source file named under each table. The report draws its numbers from there.
 - The final report shows results only. Code-generated plots are fine; the user records the videos.
 
 ## Status
@@ -19,7 +20,7 @@ The course project (IROB 2026, `IROB2026_Project_instructions (1) (1).pdf`) requ
 | 0 | Environment, repo skeleton | **Done** |
 | 1 | Analytical EL model, validated against MuJoCo | **Done**: [docs/PART1_EL.md](docs/PART1_EL.md) |
 | 2 | Datasets R / E / S / U, label audit, support definition | **Done**: [docs/PART2_DATA.md](docs/PART2_DATA.md) |
-| 3 | MLP + DeLaN, training | **In progress**: models and tests done; λ_inv selected (= 1); main grid of 34 runs trained; early-stopping issue T3 awaiting a decision (see the Phase 3 progress table) |
+| 3 | MLP + DeLaN, training | **Training done; wrap-up pending**: 34-run grid trained (results in [docs/RESULTS.md](docs/RESULTS.md)). Left: T3 decision, `p3_structure.py`, PART3 note |
 | 4 | Open-loop evaluation | — |
 | 5 | MPPI swing-up and balance; tuning can start now with the analytical model | — |
 | 6 | Pre-evaluation demo | — |
@@ -92,36 +93,20 @@ Coordinates: q = (x, θ). **θ = 0 is upright** and θ = π is hanging. τ = [10
 | Run script: λ_inv selection + 34-run grid; resumable per run | [scripts/p3_train.py](scripts/p3_train.py) | **Done** |
 | Stage 1: λ_inv selection (6 DeLaN runs) | `results/p3_select.json` | **Done**: λ_inv = 1 (thin margin, ISSUES T2) |
 | Stage 2: main grid (34 runs) | `weights/`, `results/p3_training.json` | **Done** (T3 open: 3 DeLaN runs stopped early on a loss spike) |
-| Identification + learned-structure + training-curve figures | [scripts/p3_structure.py](scripts/p3_structure.py) | Written; runs after training |
+| Identification + learned-structure + training-curve figures | [scripts/p3_structure.py](scripts/p3_structure.py) | Written; not yet run (run after the T3 decision, since retrained runs change it) |
+| Results recorded | [docs/RESULTS.md](docs/RESULTS.md) | **Done** for stages 1–2 (selection table, grid medians, per-seed table) |
 | Math note | [docs/PART3_MODELS.md](docs/PART3_MODELS.md) | After results (so every number comes from a results file) |
-| Issues found | [docs/ISSUES.md](docs/ISSUES.md) | P1 fixed; T1 mitigated; T2 decided |
+| Issues found | [docs/ISSUES.md](docs/ISSUES.md) | P1 fixed; T1 mitigated; T2 decided; T3 open |
 
-**Stage 1 result: λ_inv selection** (best validation loss, DeLaN, seed 0):
+**Results so far** (full tables, with per-seed values, in [docs/RESULTS.md](docs/RESULTS.md) § Phase 3):
+- λ_inv = 1 was selected by a 12 % margin on one seed (ISSUES T2).
+- DeLaN's median validation loss is 16–140× below the MLP's in every configuration, but DeLaN varies much more between seeds (up to 79×).
+- Three DeLaN runs (B5 seeds 1 and 2, B20 seed 1) were cut short by early stopping during loss spikes (ISSUES T3).
 
-| | λ = 0 | λ = 0.1 | λ = 1 |
-|---|---|---|---|
-| A20 | 1.04×10⁻⁷ | 9.1×10⁻⁸ | 7.9×10⁻⁸ |
-| B20 | 1.94×10⁻⁷ | 2.23×10⁻⁷ | 1.84×10⁻⁷ |
-| mean | 1.49×10⁻⁷ | 1.57×10⁻⁷ | **1.31×10⁻⁷ → chosen** |
-
-The margin is 12 % on one seed, and the λ ordering is non-monotone on B20, so the gain is not shown to be significant. The pre-registered rule is kept (ISSUES T2).
-
-**Stage 2 result: main grid** (best validation loss = normalised forward MSE; median [min, max] over seeds; from `results/p3_training.json`):
-
-| config | seeds | MLP | DeLaN | MLP / DeLaN (medians) |
-|---|---|---|---|---|
-| A1 | 5 | 2.7×10⁻³ [8.2×10⁻⁴, 3.6×10⁻²] | 6.4×10⁻⁵ [3.1×10⁻⁵, 6.0×10⁻⁴] | 43× |
-| A5 | 3 | 1.1×10⁻⁵ [8.0×10⁻⁶, 1.9×10⁻⁵] | 1.8×10⁻⁷ [4.8×10⁻⁸, 3.8×10⁻⁶] | 60× |
-| A20 | 3 | 7.1×10⁻⁶ [6.6×10⁻⁶, 8.9×10⁻⁶] | 4.5×10⁻⁷ [7.9×10⁻⁸, 1.2×10⁻⁶] | 16× |
-| B5 | 3 | 6.2×10⁻⁵ [2.8×10⁻⁵, 8.0×10⁻⁵] | 2.3×10⁻⁶ [1.7×10⁻⁷, 9.8×10⁻⁶] | 27× |
-| B20 | 3 | 2.5×10⁻⁵ [2.2×10⁻⁵, 2.6×10⁻⁵] | 1.8×10⁻⁷ [1.8×10⁻⁷, 2.9×10⁻⁶] | 140× |
-
-- DeLaN's median is lower than the MLP's in every configuration, by 16–140×. Its seed spread, however, is much wider: up to 80× between seeds, against at most 3× for the MLP, except at A1.
-- Part of DeLaN's spread is caused by early stopping, not by the model (ISSUES T3). The B5 seed 1, B5 seed 2 and B20 seed 1 runs stopped at about 15 000 steps, during a stretch of loss spikes. These are three of the four worst DeLaN runs at N ≥ 5.
-- The MLP validation loss is 3.6× (N = 20) to 5.7× (N = 5) higher in regime B than in regime A. This is expected because the B validation set contains the harder upright and rotating states.
-- These are validation numbers only. Phase 4 measures one-step and rollout error on the test episodes.
-
-**Next:** decide T3, then run `scripts/p3_structure.py` (identification and figures), then write docs/PART3_MODELS.md.
+**Remaining Phase 3 steps, in order:**
+1. **Decide T3.** Either retrain the 10 early-stopped runs with early stopping removed (fixed 30 000 steps, best checkpoint kept), or keep the grid and report the bias.
+2. Run `scripts/p3_structure.py`: parameter identification, the learned-structure figure and the training curves. Record the results in RESULTS.md.
+3. Write docs/PART3_MODELS.md in full detail, with numbers taken from the results files.
 
 **Changes from the original Phase 3 plan, with reasons:**
 - **θ-derivatives.** Hand-coded forward-mode propagation replaced `torch.func.jvp`. Each layer carries (h, dh/dθ), with dz = W dh and d softplus(z) = sigmoid(z) dz. It costs the same as one JVP, is plain differentiable torch for training, and works under `torch.no_grad()`, which removes the jvp-under-no_grad risk for MPPI. It is checked against autograd to 10⁻¹⁰.
@@ -236,7 +221,12 @@ All of these are implemented and pass.
 
 ## Phase 4 — Open-loop evaluation
 
-**Math note:** [docs/PART4_EVAL.md](docs/PART4_EVAL.md). **Script:** `scripts/p4_eval.py`, which writes `results/p4_*.json` and `figures/p4_*`.
+**Math note:** [docs/PART4_EVAL.md](docs/PART4_EVAL.md). **Script:** `scripts/p4_eval.py`, which writes `results/p4_*.json` and `figures/p4_*`. Results go into RESULTS.md § Phase 4.
+
+**Entry conditions** (what must be true before Phase 4 starts, and why):
+- **The weights are final, so T3 is decided.** Every Phase 4 metric is computed per seed. Retraining after the evaluation would mean running it twice, and the data-efficiency curves (median and spread over seeds) depend directly on the early-stopped runs.
+- **The identification has run** (`p3_structure.py`). The "identified parameters" row of the metric table below reuses its output.
+- **Not blocking:** the PART3 note can be written alongside Phase 4, because nothing in Phase 4 depends on it.
 
 **Models evaluated**, all through the same `rk4_step` in float64:
 - Analytical (oracle);
