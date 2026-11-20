@@ -24,7 +24,7 @@ The course project (IROB 2026, `IROB2026_Project_instructions (1) (1).pdf`) requ
 | 0 | Environment, repo skeleton | **Done** |
 | 1 | Analytical EL model, validated against MuJoCo | **Done**: [docs/PART1_EL.md](docs/PART1_EL.md) |
 | 2 | Datasets R / E / S / U, label audit, support definition | **Done**: [docs/PART2_DATA.md](docs/PART2_DATA.md) |
-| 3 | MLP + DeLaN, training | **In progress, paused**: models and tests done; λ_inv selected (= 1); main grid 5/34 runs done (see the Phase 3 progress table) |
+| 3 | MLP + DeLaN, training | **In progress**: models and tests done; λ_inv selected (= 1); main grid relaunched 20:08 (5/34 done before the pause; see the Phase 3 progress table) |
 | 4 | Open-loop evaluation | — |
 | 5 | MPPI swing-up and balance; tuning can start now with the analytical model | — |
 | 6 | Pre-evaluation demo | — |
@@ -96,7 +96,7 @@ Coordinates: q = (x, θ). **θ = 0 is upright** and θ = π is hanging. τ = [10
 | Training loop (normalised loss, scale-invariant inverse loss, cosine lr, clipping, early stopping) | [cartpole/train.py](cartpole/train.py) | **Done** |
 | Run script: λ_inv selection + 34-run grid; resumable, detached, `--threads` option | [scripts/p3_train.py](scripts/p3_train.py) | **Done** |
 | Stage 1: λ_inv selection (6 DeLaN runs) | `results/p3_select.json` | **Done**: λ_inv = 1 (thin margin, ISSUES T2) |
-| Stage 2: main grid (34 runs) | `weights/`, `results/p3_train.log` | **Paused at 5/34** (stopped 18:46) |
+| Stage 2: main grid (34 runs) | `weights/`, `results/p3_train.log` | **Running** (paused at 5/34 at 18:46; relaunched 20:08 with 4 workers × 1 thread, log `results/p3_train_main.log`) |
 | Identification + learned-structure + training-curve figures | [scripts/p3_structure.py](scripts/p3_structure.py) | Written; runs after training |
 | Math note | [docs/PART3_MODELS.md](docs/PART3_MODELS.md) | After results (so every number comes from a results file) |
 | Issues found | [docs/ISSUES.md](docs/ISSUES.md) | P1 fixed; T1 mitigated; T2 decided; T3 open; T4 partly fixed |
@@ -122,19 +122,19 @@ The margin is 12 % on one seed, and the λ ordering is non-monotone on B20, so t
 | delan_A1_s3_inv1 | 3.1×10⁻⁵ | 15 500 / 20 500 (early stop) | 20 min |
 
 - **Remaining:** 29 runs. These are 12 DeLaN (A1 s0 and s4, A5 ×3, A20 s1–2, B5 ×3, B20 s1–2) and all 17 MLP runs.
-- **Time left:** at the observed speed (about 25 min per DeLaN run, about 6.5 min per MLP run, 4 workers), about 1 h 45 min of wall time. It will be less if `--threads 1` proves faster (T3).
+- **Time left at relaunch:** with 4 workers × 1 thread (T3 benchmark), about 27 min per DeLaN run and 7 min per MLP run, so 1 h 45 min to 2 h of wall time if no run stops early.
 - **Early observations, to be confirmed by Phase 4:**
   - With 20 episodes, DeLaN's validation error is about 10⁻⁷ (normalised MSE), i.e. q̈ errors of about 0.02 % of each axis's spread.
   - With 1 episode, the error is about 400× worse, and early stopping triggers at about 20 000 steps.
   - Every N = 20 run was still improving at 30 000 steps, so the step budget, not convergence, sets the final accuracy.
 
-**Before relaunching:**
-1. **(T3)** Benchmark `--threads 1` against `--threads 2` with 4 workers for 1000 steps, and use the faster.
-2. **(T4, optional)** Add mid-run checkpointing (every 2000 steps: model, optimiser, scheduler, RNG) if more stops are expected.
-3. Relaunch detached. The finished runs are skipped:
+**Relaunch steps** (steps 1 and 3 done at 20:08):
+1. **(T3, done)** Benchmarked `--threads 1` against `--threads 2` with 4 workers for 1000 steps. One thread per worker is faster (DeLaN +9 %, MLP +48 %), so it was chosen.
+2. **(T4, optional, skipped for this run)** Add mid-run checkpointing (every 2000 steps: model, optimiser, scheduler, RNG) if more stops are expected.
+3. **(Done)** Relaunched detached. The finished runs are skipped:
    ```bash
    cd ~/Desktop/IRob/project
-   setsid nohup env -u PYTHONPATH ~/irob_proj/bin/python -u scripts/p3_train.py --stage main --workers 4 --threads <1|2> \
+   setsid nohup env -u PYTHONPATH ~/irob_proj/bin/python -u scripts/p3_train.py --stage main --workers 4 --threads 1 \
      > results/p3_train_main.log 2>&1 < /dev/null &
    ```
 4. Afterwards, run `python scripts/p3_structure.py` (identification and figures), then write docs/PART3_MODELS.md.
@@ -215,7 +215,7 @@ $$\mathcal L_{inv} = \big(\tfrac{\hat\tau_x - \tau_x}{\sigma_\tau}\big)^2 + \big
   - regime B, N = 20: 3 seeds × 2 models = 6;
   - optional regime B, N = 5: 6.
   - About 30–35 runs in total, at roughly 1–3 min each on CPU.
-- **Parallelism:** 4 processes with `torch.set_num_threads(2)` each.
+- **Parallelism:** 4 processes with `torch.set_num_threads(1)` each. Two threads per worker oversubscribed the 4 physical cores (ISSUES T3).
 - **Saved per run:** `weights/{model}_{A|B}{N}_s{seed}.pt`, holding the state dict, the config, the normalisation stats, the best validation loss and the step count.
 
 ### 3.5 Tests — `tests/test_models.py`

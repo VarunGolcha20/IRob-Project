@@ -22,7 +22,7 @@ This is a running log of things that may be wrong, or that could bias the compar
 | P1 | Initialising DeLaN's damping too high | High | **Fixed:** raw parameter initialised at softplus⁻¹(10⁻⁴) |
 | T1 | DeLaN training loss is non-monotone at lr = 10⁻³ | Medium | Mitigated (cosine decay, clipping, best checkpoint); check the curves |
 | T2 | λ_inv = 1 chosen on a thin, single-seed margin, at 2× the cost | Medium | **Decided:** keep λ_inv = 1 (rule fixed in advance); report the margin honestly; λ = 0 seeds in Phase 7 |
-| T3 | Training is ~4.6× slower than benchmarked (CPU oversubscription) | Medium | Open: benchmark `--threads 1` before relaunching |
+| T3 | Training is ~4.6× slower than benchmarked (CPU oversubscription) | Medium | Fixed: benchmarked; relaunched with 4 workers × 1 thread |
 | T4 | No mid-run checkpoints: stopping loses in-progress runs | Medium | Partly fixed (resumable per run, detached launch); mid-run checkpointing optional |
 | P2 | Energy-drift test asymmetry (DeLaN can set D = 0) | Medium | In plan (Phase 4) |
 | A1 | q̈ labels off by 2×10⁻⁴ on rail-limit rows | Low | Moot (limit rows dropped) |
@@ -130,10 +130,20 @@ softplus(0) = 0.69 would give a damping time constant of 1.6 s, against a true 2
 - **Report:** state that the EL-residual (inverse) loss gives at most a ~12 % lower validation loss on one seed, which is not shown to be significant, and that it costs 2× compute.
 - **In plan (Phase 7):** train λ = 0 at seeds 1–2 for A20 and B20 (4 runs). That gives a real seed-to-seed spread to compare the λ effect against.
 
-### T3. Training is ~4.6× slower than benchmarked — Medium, open
+### T3. Training is ~4.6× slower than benchmarked — Medium, fixed
 - **Evidence:** a DeLaN (λ = 0) run took 1001 s for 30 000 steps, i.e. 33 ms per step, against 7.2 ms benchmarked alone with 2 threads. The machine has 4 physical cores and 8 hardware threads (i5-11320H). 4 workers × 2 torch threads = 8 threads on 4 cores, so each worker gets about one core and hyper-threading adds little to dense matrix work.
 - **Impact:** the full grid takes about 4–5 h of wall time instead of about 1 h.
 - **Action (before relaunch):** benchmark 1000 steps with `--workers 4 --threads 1` against `--threads 2`, then relaunch with the faster setting. `scripts/p3_train.py` now has a `--threads` option. The thread count changes only floating-point summation order, not the method, and run names do not depend on it, so finished runs stay valid.
+- **Benchmark (20:07):** 1000 steps per worker, regime A5, run in parallel, weights written to a scratch folder. Throughput in total gradient steps per second across all workers:
+
+  | setting | DeLaN (λ_inv = 1) | MLP |
+  |---|---|---|
+  | 4 workers × 2 threads (first launch) | 41.9 | 99.7 |
+  | **4 workers × 1 thread (chosen)** | **45.8 (+9 %)** | **147.1 (+48 %)** |
+  | 8 workers × 1 thread | 39.1 (−7 %) | 162.0 (+10 %) |
+
+  Two threads per worker is slower than one, because 8 threads on 4 physical cores contend for the same cores. Eight workers helps the small MLP a little but hurts DeLaN, so hyper-threading adds no useful compute here.
+- **Fixed:** the main grid was relaunched at 20:08 with `--workers 4 --threads 1`. Estimated wall time, assuming no run stops early, was 1 h 45 min to 2 h. This is calibrated from the logged run times scaled by the benchmark ratios: about 27 min per 30 000-step DeLaN run and about 7 min per MLP run.
 
 ### T4. No mid-run checkpoints — Medium, partly fixed
 - **Evidence:**
