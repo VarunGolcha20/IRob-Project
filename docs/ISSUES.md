@@ -19,7 +19,8 @@ This is a running log of things that may be wrong, or that could bias the compar
 | D8 | Row alignment differs from the PDF snippet | Low | Documented |
 | D9 | Exploration policies use nominal parameters | Low | Documented |
 | D10 | One falling S episode inflates any max-based velocity support | Medium | **Fixed** (same density support as D1) |
-| P1 | Initialising DeLaN's damping too high | High | In plan (Phase 3) |
+| P1 | Initialising DeLaN's damping too high | High | **Fixed:** raw parameter initialised at softplus⁻¹(10⁻⁴) |
+| T1 | DeLaN training loss is non-monotone at lr = 10⁻³ | Medium | Mitigated (cosine decay, clipping, best checkpoint); check the curves |
 | P2 | Energy-drift test asymmetry (DeLaN can set D = 0) | Medium | In plan (Phase 4) |
 | A1 | q̈ labels off by 2×10⁻⁴ on rail-limit rows | Low | Moot (limit rows dropped) |
 | A2 | No model includes the rail limit | Medium | In plan (Phases 4–5) |
@@ -102,9 +103,15 @@ The pumping law (E) and the LQR (S) use the true J and m_p l. They shape the tra
 
 ## Phase 3–5 risks (actions are in the plan)
 
-### P1. Initialising DeLaN's damping too high — High
+### P1. Initialising DeLaN's damping too high — High, fixed
 softplus(0) = 0.69 would give a damping time constant of 1.6 s, against a true 2200 s, and the data barely constrains D (PART1, P5).
-- **In plan (Phase 3):** initialise the raw parameter at softplus⁻¹(10⁻⁴), and report the learned D next to the true values.
+- **Fixed (Phase 3):** `DeLaN.d_raw` is initialised at softplus⁻¹(10⁻⁴). The learned D is reported next to the true values in `results/p3_identification.json`.
+
+### T1. DeLaN training loss is non-monotone at lr = 10⁻³ — Medium, mitigated
+- **Evidence:** fitting one batch of 256 rows at a constant lr of 10⁻³, DeLaN's normalised loss goes 14.5 → 7.7×10⁻⁴ (step 1000) → **8.9×10⁻³** (step 2000) → 3.8×10⁻⁴ (step 8000). The MLP decreases steadily. On that narrow batch, which is all near hanging, the learned M also drifts between equally good fits (at step 8000, M₁₂(π) = −0.12 against a true −0.05), a sign of weak identifiability from a narrow θ range.
+- **Cause (likely):** q̈ = M⁻¹(…). When M is nearly singular along some direction, small parameter changes produce large changes in q̈, so a fixed step size can overshoot.
+- **Mitigation:** cosine decay of the lr to 10⁻⁵, gradient clipping at 10, and keeping the best validation checkpoint (`cartpole/train.py`). The plumbing test now requires a 1000× loss drop instead of a fixed 10⁻³ (`tests/test_models.py`).
+- **Action (Phase 3 results):** inspect `figures/p3_training_curves`. Identification is judged only over the training angles, and regime A (θ ≈ π only) is expected to identify M less well than regime B.
 
 ### P2. Fairness of the energy-drift test — Medium
 DeLaN can switch its damping off (D = 0); the MLP cannot. The effect is negligible here, because the true time constants are 2200 s and 17 000 s against a 10 s test, so over 10 s the true damping removes at most 0.9 % of the cart's kinetic energy and 0.12 % of the pole's (PART1 P5).
