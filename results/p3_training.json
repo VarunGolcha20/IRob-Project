@@ -1,0 +1,1169 @@
+{
+  "lam_inv": 1.0,
+  "runs": [
+    {
+      "name": "mlp_A1_s0",
+      "kind": "mlp",
+      "regime": "A",
+      "N": 1,
+      "seed": 0,
+      "best_val": 0.0014784911181777716,
+      "best_step": 4500,
+      "stopped_step": 9500,
+      "time_s": 125.85662722587585,
+      "n_train": 1000,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          10
+        ]
+      }
+    },
+    {
+      "name": "delan_A1_s0_inv1",
+      "kind": "delan",
+      "regime": "A",
+      "N": 1,
+      "seed": 0,
+      "best_val": 6.354563811328262e-05,
+      "best_step": 16500,
+      "stopped_step": 21500,
+      "time_s": 1083.0043776035309,
+      "n_train": 1000,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          10
+        ]
+      }
+    },
+    {
+      "name": "mlp_A1_s1",
+      "kind": "mlp",
+      "regime": "A",
+      "N": 1,
+      "seed": 1,
+      "best_val": 0.0008234934648498893,
+      "best_step": 30000,
+      "stopped_step": 30000,
+      "time_s": 393.4878134727478,
+      "n_train": 1000,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          10
+        ]
+      }
+    },
+    {
+      "name": "delan_A1_s1_inv1",
+      "kind": "delan",
+      "regime": "A",
+      "N": 1,
+      "seed": 1,
+      "best_val": 4.974995317752473e-05,
+      "best_step": 15000,
+      "stopped_step": 20000,
+      "time_s": 1174.566598892212,
+      "n_train": 1000,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          10
+        ]
+      }
+    },
+    {
+      "name": "mlp_A1_s2",
+      "kind": "mlp",
+      "regime": "A",
+      "N": 1,
+      "seed": 2,
+      "best_val": 0.005040941759943962,
+      "best_step": 5000,
+      "stopped_step": 10000,
+      "time_s": 127.3170645236969,
+      "n_train": 933,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          5
+        ]
+      }
+    },
+    {
+      "name": "delan_A1_s2_inv1",
+      "kind": "delan",
+      "regime": "A",
+      "N": 1,
+      "seed": 2,
+      "best_val": 8.741764759179205e-05,
+      "best_step": 18000,
+      "stopped_step": 23000,
+      "time_s": 1285.2876818180084,
+      "n_train": 933,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          5
+        ]
+      }
+    },
+    {
+      "name": "mlp_A1_s3",
+      "kind": "mlp",
+      "regime": "A",
+      "N": 1,
+      "seed": 3,
+      "best_val": 0.0027329360600560904,
+      "best_step": 28000,
+      "stopped_step": 30000,
+      "time_s": 373.9056119918823,
+      "n_train": 964,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          19
+        ]
+      }
+    },
+    {
+      "name": "delan_A1_s3_inv1",
+      "kind": "delan",
+      "regime": "A",
+      "N": 1,
+      "seed": 3,
+      "best_val": 3.134921644232236e-05,
+      "best_step": 15500,
+      "stopped_step": 20500,
+      "time_s": 1171.0940561294556,
+      "n_train": 964,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          19
+        ]
+      }
+    },
+    {
+      "name": "mlp_A1_s4",
+      "kind": "mlp",
+      "regime": "A",
+      "N": 1,
+      "seed": 4,
+      "best_val": 0.035654425621032715,
+      "best_step": 26500,
+      "stopped_step": 30000,
+      "time_s": 375.9111433029175,
+      "n_train": 957,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          8
+        ]
+      }
+    },
+    {
+      "name": "delan_A1_s4_inv1",
+      "kind": "delan",
+      "regime": "A",
+      "N": 1,
+      "seed": 4,
+      "best_val": 0.0006037667626515031,
+      "best_step": 7000,
+      "stopped_step": 12000,
+      "time_s": 578.9227027893066,
+      "n_train": 957,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          8
+        ]
+      }
+    },
+    {
+      "name": "mlp_A5_s0",
+      "kind": "mlp",
+      "regime": "A",
+      "N": 5,
+      "seed": 0,
+      "best_val": 8.036022336455062e-06,
+      "best_step": 30000,
+      "stopped_step": 30000,
+      "time_s": 374.14043641090393,
+      "n_train": 4794,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          6,
+          7,
+          10,
+          11,
+          14
+        ]
+      }
+    },
+    {
+      "name": "delan_A5_s0_inv1",
+      "kind": "delan",
+      "regime": "A",
+      "N": 5,
+      "seed": 0,
+      "best_val": 4.774146233899046e-08,
+      "best_step": 29000,
+      "stopped_step": 30000,
+      "time_s": 1506.6699073314667,
+      "n_train": 4794,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          6,
+          7,
+          10,
+          11,
+          14
+        ]
+      }
+    },
+    {
+      "name": "mlp_A5_s1",
+      "kind": "mlp",
+      "regime": "A",
+      "N": 5,
+      "seed": 1,
+      "best_val": 1.9218747183913365e-05,
+      "best_step": 30000,
+      "stopped_step": 30000,
+      "time_s": 374.967631816864,
+      "n_train": 4770,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          6,
+          13,
+          17,
+          18,
+          19
+        ]
+      }
+    },
+    {
+      "name": "delan_A5_s1_inv1",
+      "kind": "delan",
+      "regime": "A",
+      "N": 5,
+      "seed": 1,
+      "best_val": 3.7749530292785494e-06,
+      "best_step": 30000,
+      "stopped_step": 30000,
+      "time_s": 1509.033644914627,
+      "n_train": 4770,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          6,
+          13,
+          17,
+          18,
+          19
+        ]
+      }
+    },
+    {
+      "name": "mlp_A5_s2",
+      "kind": "mlp",
+      "regime": "A",
+      "N": 5,
+      "seed": 2,
+      "best_val": 1.0785695849335752e-05,
+      "best_step": 29500,
+      "stopped_step": 30000,
+      "time_s": 375.3075656890869,
+      "n_train": 4795,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          0,
+          11,
+          12,
+          13,
+          18
+        ]
+      }
+    },
+    {
+      "name": "delan_A5_s2_inv1",
+      "kind": "delan",
+      "regime": "A",
+      "N": 5,
+      "seed": 2,
+      "best_val": 1.8006159052674775e-07,
+      "best_step": 29500,
+      "stopped_step": 30000,
+      "time_s": 1597.0527746677399,
+      "n_train": 4795,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          0,
+          11,
+          12,
+          13,
+          18
+        ]
+      }
+    },
+    {
+      "name": "mlp_A20_s0",
+      "kind": "mlp",
+      "regime": "A",
+      "N": 20,
+      "seed": 0,
+      "best_val": 7.07650906406343e-06,
+      "best_step": 30000,
+      "stopped_step": 30000,
+      "time_s": 376.59720182418823,
+      "n_train": 19170,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ]
+      }
+    },
+    {
+      "name": "delan_A20_s0_inv1",
+      "kind": "delan",
+      "regime": "A",
+      "N": 20,
+      "seed": 0,
+      "best_val": 7.925437728317775e-08,
+      "best_step": 29500,
+      "stopped_step": 30000,
+      "time_s": 1752.075053691864,
+      "n_train": 19170,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ]
+      }
+    },
+    {
+      "name": "mlp_A20_s1",
+      "kind": "mlp",
+      "regime": "A",
+      "N": 20,
+      "seed": 1,
+      "best_val": 8.862457434588578e-06,
+      "best_step": 30000,
+      "stopped_step": 30000,
+      "time_s": 374.09293246269226,
+      "n_train": 19170,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ]
+      }
+    },
+    {
+      "name": "delan_A20_s1_inv1",
+      "kind": "delan",
+      "regime": "A",
+      "N": 20,
+      "seed": 1,
+      "best_val": 1.2403844493746874e-06,
+      "best_step": 29500,
+      "stopped_step": 30000,
+      "time_s": 1689.3812963962555,
+      "n_train": 19170,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ]
+      }
+    },
+    {
+      "name": "mlp_A20_s2",
+      "kind": "mlp",
+      "regime": "A",
+      "N": 20,
+      "seed": 2,
+      "best_val": 6.609962383663515e-06,
+      "best_step": 29500,
+      "stopped_step": 30000,
+      "time_s": 374.1675555706024,
+      "n_train": 19170,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ]
+      }
+    },
+    {
+      "name": "delan_A20_s2_inv1",
+      "kind": "delan",
+      "regime": "A",
+      "N": 20,
+      "seed": 2,
+      "best_val": 4.478113169170683e-07,
+      "best_step": 30000,
+      "stopped_step": 30000,
+      "time_s": 1680.624243736267,
+      "n_train": 19170,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ]
+      }
+    },
+    {
+      "name": "mlp_B5_s0",
+      "kind": "mlp",
+      "regime": "B",
+      "N": 5,
+      "seed": 0,
+      "best_val": 6.162006659685704e-05,
+      "best_step": 29000,
+      "stopped_step": 30000,
+      "time_s": 374.68580532073975,
+      "n_train": 12720,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          6,
+          8,
+          15,
+          16,
+          18
+        ],
+        "E_train": [
+          2,
+          12,
+          15,
+          17,
+          19
+        ],
+        "S_train": [
+          2,
+          5,
+          9
+        ]
+      }
+    },
+    {
+      "name": "delan_B5_s0_inv1",
+      "kind": "delan",
+      "regime": "B",
+      "N": 5,
+      "seed": 0,
+      "best_val": 1.702318306367766e-07,
+      "best_step": 29000,
+      "stopped_step": 30000,
+      "time_s": 1698.0554416179657,
+      "n_train": 12720,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          6,
+          8,
+          15,
+          16,
+          18
+        ],
+        "E_train": [
+          2,
+          12,
+          15,
+          17,
+          19
+        ],
+        "S_train": [
+          2,
+          5,
+          9
+        ]
+      }
+    },
+    {
+      "name": "mlp_B5_s1",
+      "kind": "mlp",
+      "regime": "B",
+      "N": 5,
+      "seed": 1,
+      "best_val": 2.8242916354246533e-05,
+      "best_step": 30000,
+      "stopped_step": 30000,
+      "time_s": 371.14503169059753,
+      "n_train": 12587,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          2,
+          4,
+          5,
+          8,
+          18
+        ],
+        "E_train": [
+          4,
+          6,
+          8,
+          12,
+          13
+        ],
+        "S_train": [
+          1,
+          6,
+          9
+        ]
+      }
+    },
+    {
+      "name": "delan_B5_s1_inv1",
+      "kind": "delan",
+      "regime": "B",
+      "N": 5,
+      "seed": 1,
+      "best_val": 9.822091884046087e-06,
+      "best_step": 9500,
+      "stopped_step": 14500,
+      "time_s": 864.3432767391205,
+      "n_train": 12587,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          2,
+          4,
+          5,
+          8,
+          18
+        ],
+        "E_train": [
+          4,
+          6,
+          8,
+          12,
+          13
+        ],
+        "S_train": [
+          1,
+          6,
+          9
+        ]
+      }
+    },
+    {
+      "name": "mlp_B5_s2",
+      "kind": "mlp",
+      "regime": "B",
+      "N": 5,
+      "seed": 2,
+      "best_val": 8.04100019562063e-05,
+      "best_step": 30000,
+      "stopped_step": 30000,
+      "time_s": 369.0233461856842,
+      "n_train": 12758,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          3,
+          11,
+          14,
+          15,
+          19
+        ],
+        "E_train": [
+          4,
+          8,
+          14,
+          15,
+          19
+        ],
+        "S_train": [
+          2,
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "name": "delan_B5_s2_inv1",
+      "kind": "delan",
+      "regime": "B",
+      "N": 5,
+      "seed": 2,
+      "best_val": 2.322906132345877e-06,
+      "best_step": 10000,
+      "stopped_step": 15000,
+      "time_s": 816.6595561504364,
+      "n_train": 12758,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          3,
+          11,
+          14,
+          15,
+          19
+        ],
+        "E_train": [
+          4,
+          8,
+          14,
+          15,
+          19
+        ],
+        "S_train": [
+          2,
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "name": "mlp_B20_s0",
+      "kind": "mlp",
+      "regime": "B",
+      "N": 20,
+      "seed": 0,
+      "best_val": 2.5995497334534897e-05,
+      "best_step": 29500,
+      "stopped_step": 30000,
+      "time_s": 370.35385823249817,
+      "n_train": 48835,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "E_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "S_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    },
+    {
+      "name": "delan_B20_s0_inv1",
+      "kind": "delan",
+      "regime": "B",
+      "N": 20,
+      "seed": 0,
+      "best_val": 1.8368967933699026e-07,
+      "best_step": 29000,
+      "stopped_step": 30000,
+      "time_s": 1218.1415803432465,
+      "n_train": 48835,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "E_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "S_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    },
+    {
+      "name": "mlp_B20_s1",
+      "kind": "mlp",
+      "regime": "B",
+      "N": 20,
+      "seed": 1,
+      "best_val": 2.1531115731171263e-05,
+      "best_step": 30000,
+      "stopped_step": 30000,
+      "time_s": 302.7386112213135,
+      "n_train": 48835,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "E_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "S_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    },
+    {
+      "name": "delan_B20_s1_inv1",
+      "kind": "delan",
+      "regime": "B",
+      "N": 20,
+      "seed": 1,
+      "best_val": 2.9435360834936156e-06,
+      "best_step": 10000,
+      "stopped_step": 15000,
+      "time_s": 806.7138555049896,
+      "n_train": 48835,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "E_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "S_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    },
+    {
+      "name": "mlp_B20_s2",
+      "kind": "mlp",
+      "regime": "B",
+      "N": 20,
+      "seed": 2,
+      "best_val": 2.5336406805357673e-05,
+      "best_step": 29500,
+      "stopped_step": 30000,
+      "time_s": 211.47985005378723,
+      "n_train": 48835,
+      "n_params": 34178,
+      "chosen": {
+        "R_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "E_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "S_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    },
+    {
+      "name": "delan_B20_s2_inv1",
+      "kind": "delan",
+      "regime": "B",
+      "N": 20,
+      "seed": 2,
+      "best_val": 1.797802862222428e-07,
+      "best_step": 29000,
+      "stopped_step": 30000,
+      "time_s": 1554.5300133228302,
+      "n_train": 48835,
+      "n_params": 34310,
+      "chosen": {
+        "R_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "E_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "S_train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    }
+  ]
+}

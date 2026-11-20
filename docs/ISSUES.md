@@ -22,6 +22,7 @@ This is a running log of things that may be wrong, or that could bias the compar
 | P1 | Initialising DeLaN's damping too high | High | **Fixed:** raw parameter initialised at softplus⁻¹(10⁻⁴) |
 | T1 | DeLaN training loss is non-monotone at lr = 10⁻³ | Medium | Mitigated (cosine decay, clipping, best checkpoint); check the curves |
 | T2 | λ_inv = 1 chosen on a thin, single-seed margin, at 2× the cost | Medium | **Decided:** keep λ_inv = 1 (rule fixed in advance); report the margin honestly; λ = 0 seeds in Phase 7 |
+| T3 | Early stopping cuts DeLaN runs during loss spikes | High | **Open:** decision pending (retrain early-stopped runs with the fixed 30 000-step budget, keeping the best checkpoint) |
 | P2 | Energy-drift test asymmetry (DeLaN can set D = 0) | Medium | In plan (Phase 4) |
 | A1 | q̈ labels off by 2×10⁻⁴ on rail-limit rows | Low | Moot (limit rows dropped) |
 | A2 | No model includes the rail limit | Medium | In plan (Phases 4–5) |
@@ -127,6 +128,13 @@ softplus(0) = 0.69 would give a damping time constant of 1.6 s, against a true 2
 - **Decision:** keep λ_inv = 1. The selection rule (lowest mean validation loss over A20 and B20) was fixed in advance in PLAN 3.3, and changing it after seeing the numbers would be a garden-of-forking-paths choice.
 - **Report:** state that the EL-residual (inverse) loss gives at most a ~12 % lower validation loss on one seed, which is not shown to be significant, and that it costs 2× compute.
 - **In plan (Phase 7):** train λ = 0 at seeds 1–2 for A20 and B20 (4 runs). That gives a real seed-to-seed spread to compare the λ effect against.
+
+### T3. Early stopping cuts DeLaN runs during loss spikes — High, open
+- **Evidence:** in the main grid, DeLaN B20 seed 1, B5 seed 1 and B5 seed 2 stopped at 14 500–15 000 steps, with best validation losses of 2.9×10⁻⁶, 9.8×10⁻⁶ and 2.3×10⁻⁶. The seeds that ran the full 30 000 steps reached 1.7–1.8×10⁻⁷, 10–60× lower. After its best evaluation at step 10 000, B20 seed 1 went through ten evaluations of 3.9×10⁻⁶ to 1.2×10⁻⁴: a factor-of-40 swing between neighbouring evaluations. This is the non-monotone training of T1. At step 10 000 the cosine schedule still has the learning rate at about 0.75×10⁻³, and patience is 10 evaluations (5000 steps), so a spiky stretch triggers the stop before the learning rate decays.
+- **Effect on the MLP:** none at N ≥ 5, where every MLP run used the full 30 000 steps. Two MLP A1 runs stopped at about 10 000 steps, which looks like genuine over-fitting to one episode.
+- **Impact:** high. Early stopping inflates DeLaN's seed spread and its worst-case numbers, and it could change the data-efficiency curves and which seed is "best". The bias goes against DeLaN, so the current comparison is conservative, but it is not clean.
+- **Proposed fix:** drop early stopping for every run (both models), train the fixed 30 000-step budget, and keep the best-validation checkpoint. The validation set still selects the weights, so over-fitting is still guarded against. Only runs that actually stopped early change (8 DeLaN: A1 ×5, B5 s1–2, B20 s1; 2 MLP: A1 s0, s2). All other runs are identical under the new rule, because they never stopped early.
+- **Status:** open; waiting for the decision.
 
 ### P2. Fairness of the energy-drift test — Medium
 DeLaN can switch its damping off (D = 0); the MLP cannot. The effect is negligible here, because the true time constants are 2200 s and 17 000 s against a 10 s test, so over 10 s the true damping removes at most 0.9 % of the cart's kinetic energy and 0.12 % of the pole's (PART1 P5).

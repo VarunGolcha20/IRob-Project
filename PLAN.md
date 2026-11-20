@@ -19,7 +19,7 @@ The course project (IROB 2026, `IROB2026_Project_instructions (1) (1).pdf`) requ
 | 0 | Environment, repo skeleton | **Done** |
 | 1 | Analytical EL model, validated against MuJoCo | **Done**: [docs/PART1_EL.md](docs/PART1_EL.md) |
 | 2 | Datasets R / E / S / U, label audit, support definition | **Done**: [docs/PART2_DATA.md](docs/PART2_DATA.md) |
-| 3 | MLP + DeLaN, training | **In progress**: models and tests done; λ_inv selected (= 1); main grid of 34 runs training (see the Phase 3 progress table) |
+| 3 | MLP + DeLaN, training | **In progress**: models and tests done; λ_inv selected (= 1); main grid of 34 runs trained; early-stopping issue T3 awaiting a decision (see the Phase 3 progress table) |
 | 4 | Open-loop evaluation | — |
 | 5 | MPPI swing-up and balance; tuning can start now with the analytical model | — |
 | 6 | Pre-evaluation demo | — |
@@ -91,7 +91,7 @@ Coordinates: q = (x, θ). **θ = 0 is upright** and θ = π is hanging. τ = [10
 | Training loop (normalised loss, scale-invariant inverse loss, cosine lr, clipping, early stopping) | [cartpole/train.py](cartpole/train.py) | **Done** |
 | Run script: λ_inv selection + 34-run grid; resumable per run | [scripts/p3_train.py](scripts/p3_train.py) | **Done** |
 | Stage 1: λ_inv selection (6 DeLaN runs) | `results/p3_select.json` | **Done**: λ_inv = 1 (thin margin, ISSUES T2) |
-| Stage 2: main grid (34 runs) | `weights/` | **Running** |
+| Stage 2: main grid (34 runs) | `weights/`, `results/p3_training.json` | **Done** (T3 open: 3 DeLaN runs stopped early on a loss spike) |
 | Identification + learned-structure + training-curve figures | [scripts/p3_structure.py](scripts/p3_structure.py) | Written; runs after training |
 | Math note | [docs/PART3_MODELS.md](docs/PART3_MODELS.md) | After results (so every number comes from a results file) |
 | Issues found | [docs/ISSUES.md](docs/ISSUES.md) | P1 fixed; T1 mitigated; T2 decided |
@@ -106,23 +106,22 @@ Coordinates: q = (x, θ). **θ = 0 is upright** and θ = π is hanging. τ = [10
 
 The margin is 12 % on one seed, and the λ ordering is non-monotone on B20, so the gain is not shown to be significant. The pre-registered rule is kept (ISSUES T2).
 
-**Stage 2: runs finished so far** (main grid, λ_inv = 1 for DeLaN):
+**Stage 2 result: main grid** (best validation loss = normalised forward MSE; median [min, max] over seeds; from `results/p3_training.json`):
 
-| run | best validation loss | best step / stopped at |
-|---|---|---|
-| delan_A20_s0_inv1 (reused from stage 1) | 7.9×10⁻⁸ | 29 500 / 30 000 |
-| delan_B20_s0_inv1 (reused from stage 1) | 1.84×10⁻⁷ | 29 000 / 30 000 |
-| delan_A1_s1_inv1 | 5.0×10⁻⁵ | 15 000 / 20 000 (early stop) |
-| delan_A1_s2_inv1 | 8.7×10⁻⁵ | 18 000 / 23 000 (early stop) |
-| delan_A1_s3_inv1 | 3.1×10⁻⁵ | 15 500 / 20 500 (early stop) |
+| config | seeds | MLP | DeLaN | MLP / DeLaN (medians) |
+|---|---|---|---|---|
+| A1 | 5 | 2.7×10⁻³ [8.2×10⁻⁴, 3.6×10⁻²] | 6.4×10⁻⁵ [3.1×10⁻⁵, 6.0×10⁻⁴] | 43× |
+| A5 | 3 | 1.1×10⁻⁵ [8.0×10⁻⁶, 1.9×10⁻⁵] | 1.8×10⁻⁷ [4.8×10⁻⁸, 3.8×10⁻⁶] | 60× |
+| A20 | 3 | 7.1×10⁻⁶ [6.6×10⁻⁶, 8.9×10⁻⁶] | 4.5×10⁻⁷ [7.9×10⁻⁸, 1.2×10⁻⁶] | 16× |
+| B5 | 3 | 6.2×10⁻⁵ [2.8×10⁻⁵, 8.0×10⁻⁵] | 2.3×10⁻⁶ [1.7×10⁻⁷, 9.8×10⁻⁶] | 27× |
+| B20 | 3 | 2.5×10⁻⁵ [2.2×10⁻⁵, 2.6×10⁻⁵] | 1.8×10⁻⁷ [1.8×10⁻⁷, 2.9×10⁻⁶] | 140× |
 
-- **Remaining:** 29 runs (in training). These are 12 DeLaN (A1 s0 and s4, A5 ×3, A20 s1–2, B5 ×3, B20 s1–2) and all 17 MLP runs.
-- **Early observations, to be confirmed by Phase 4:**
-  - With 20 episodes, DeLaN's validation error is about 10⁻⁷ (normalised MSE), i.e. q̈ errors of about 0.02 % of each axis's spread.
-  - With 1 episode, the error is about 400× worse, and early stopping triggers at about 20 000 steps.
-  - Every N = 20 run was still improving at 30 000 steps, so the step budget, not convergence, sets the final accuracy.
+- DeLaN's median is lower than the MLP's in every configuration, by 16–140×. Its seed spread, however, is much wider: up to 80× between seeds, against at most 3× for the MLP, except at A1.
+- Part of DeLaN's spread is caused by early stopping, not by the model (ISSUES T3). The B5 seed 1, B5 seed 2 and B20 seed 1 runs stopped at about 15 000 steps, during a stretch of loss spikes. These are three of the four worst DeLaN runs at N ≥ 5.
+- The MLP validation loss is about 3× higher in regime B than in regime A at the same N. This is expected because the B validation set contains the harder upright and rotating states.
+- These are validation numbers only. Phase 4 measures one-step and rollout error on the test episodes.
 
-**Next:** run `scripts/p3_structure.py` (identification and figures), then write docs/PART3_MODELS.md.
+**Next:** decide T3, then run `scripts/p3_structure.py` (identification and figures), then write docs/PART3_MODELS.md.
 
 **Changes from the original Phase 3 plan, with reasons:**
 - **θ-derivatives.** Hand-coded forward-mode propagation replaced `torch.func.jvp`. Each layer carries (h, dh/dθ), with dz = W dh and d softplus(z) = sigmoid(z) dz. It costs the same as one JVP, is plain differentiable torch for training, and works under `torch.no_grad()`, which removes the jvp-under-no_grad risk for MPPI. It is checked against autograd to 10⁻¹⁰.

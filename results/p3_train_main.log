@@ -1,0 +1,65 @@
+main grid: 34 runs, 5 already trained
+skip delan_A1_s2_inv1       (already trained, best_val 8.742e-05)
+start delan_A1_s4_inv1       20:08:31
+skip delan_A1_s1_inv1       (already trained, best_val 4.975e-05)
+start delan_A5_s0_inv1       20:08:31
+start delan_A1_s0_inv1       20:08:31
+skip delan_A1_s3_inv1       (already trained, best_val 3.135e-05)
+start delan_A5_s1_inv1       20:08:31
+done delan_A1_s4_inv1       best_val 6.038e-04 at  7000 (stopped 12000) 581s
+start delan_A5_s2_inv1       20:18:12
+done delan_A1_s0_inv1       best_val 6.355e-05 at 16500 (stopped 21500) 1085s
+skip delan_A20_s0_inv1      (already trained, best_val 7.925e-08)
+start delan_A20_s1_inv1      20:26:36
+done delan_A5_s0_inv1       best_val 4.774e-08 at 29000 (stopped 30000) 1509s
+start delan_A20_s2_inv1      20:33:40
+done delan_A5_s1_inv1       best_val 3.775e-06 at 30000 (stopped 30000) 1511s
+start delan_B5_s0_inv1       20:33:42
+done delan_A5_s2_inv1       best_val 1.801e-07 at 29500 (stopped 30000) 1597s
+start delan_B5_s1_inv1       20:44:49
+done delan_A20_s1_inv1      best_val 1.240e-06 at 29500 (stopped 30000) 1689s
+start delan_B5_s2_inv1       20:54:45
+done delan_B5_s1_inv1       best_val 9.822e-06 at  9500 (stopped 14500) 865s
+skip delan_B20_s0_inv1      (already trained, best_val 1.837e-07)
+start delan_B20_s1_inv1      20:59:14
+done delan_A20_s2_inv1      best_val 4.478e-07 at 30000 (stopped 30000) 1681s
+start delan_B20_s2_inv1      21:01:40
+done delan_B5_s0_inv1       best_val 1.702e-07 at 29000 (stopped 30000) 1698s
+start mlp_A1_s0              21:02:00
+done mlp_A1_s0              best_val 1.478e-03 at  4500 (stopped  9500) 126s
+start mlp_A1_s1              21:04:06
+done delan_B5_s2_inv1       best_val 2.323e-06 at 10000 (stopped 15000) 817s
+start mlp_A1_s2              21:08:22
+done mlp_A1_s2              best_val 5.041e-03 at  5000 (stopped 10000) 127s
+start mlp_A1_s3              21:10:30
+done mlp_A1_s1              best_val 8.235e-04 at 30000 (stopped 30000) 394s
+start mlp_A1_s4              21:10:40
+done delan_B20_s1_inv1      best_val 2.944e-06 at 10000 (stopped 15000) 807s
+start mlp_A5_s0              21:12:40
+done mlp_A1_s3              best_val 2.733e-03 at 28000 (stopped 30000) 374s
+start mlp_A5_s1              21:16:44
+done mlp_A1_s4              best_val 3.565e-02 at 26500 (stopped 30000) 376s
+start mlp_A5_s2              21:16:56
+done mlp_A5_s0              best_val 8.036e-06 at 30000 (stopped 30000) 374s
+start mlp_A20_s0             21:18:55
+done mlp_A5_s1              best_val 1.922e-05 at 30000 (stopped 30000) 375s
+start mlp_A20_s1             21:22:59
+done mlp_A5_s2              best_val 1.079e-05 at 29500 (stopped 30000) 375s
+start mlp_A20_s2             21:23:11
+done mlp_A20_s0             best_val 7.077e-06 at 30000 (stopped 30000) 377s
+start mlp_B5_s0              21:25:11
+done delan_B20_s2_inv1      best_val 1.798e-07 at 29000 (stopped 30000) 1555s
+start mlp_B5_s1              21:27:35
+done mlp_A20_s1             best_val 8.862e-06 at 30000 (stopped 30000) 374s
+start mlp_B5_s2              21:29:13
+done mlp_A20_s2             best_val 6.610e-06 at 29500 (stopped 30000) 374s
+start mlp_B20_s0             21:29:25
+done mlp_B5_s0              best_val 6.162e-05 at 29000 (stopped 30000) 375s
+start mlp_B20_s1             21:31:26
+done mlp_B5_s1              best_val 2.824e-05 at 30000 (stopped 30000) 371s
+start mlp_B20_s2             21:33:46
+done mlp_B5_s2              best_val 8.041e-05 at 30000 (stopped 30000) 369s
+done mlp_B20_s0             best_val 2.600e-05 at 29500 (stopped 30000) 370s
+done mlp_B20_s1             best_val 2.153e-05 at 30000 (stopped 30000) 303s
+done mlp_B20_s2             best_val 2.534e-05 at 29500 (stopped 30000) 212s
+wrote 34 runs to results/p3_training.json
