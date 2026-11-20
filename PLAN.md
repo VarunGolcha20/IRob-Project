@@ -118,7 +118,7 @@ The margin is 12 % on one seed, and the λ ordering is non-monotone on B20, so t
 
 - DeLaN's median is lower than the MLP's in every configuration, by 16–140×. Its seed spread, however, is much wider: up to 80× between seeds, against at most 3× for the MLP, except at A1.
 - Part of DeLaN's spread is caused by early stopping, not by the model (ISSUES T3). The B5 seed 1, B5 seed 2 and B20 seed 1 runs stopped at about 15 000 steps, during a stretch of loss spikes. These are three of the four worst DeLaN runs at N ≥ 5.
-- The MLP validation loss is about 3× higher in regime B than in regime A at the same N. This is expected because the B validation set contains the harder upright and rotating states.
+- The MLP validation loss is 3.6× (N = 20) to 5.7× (N = 5) higher in regime B than in regime A. This is expected because the B validation set contains the harder upright and rotating states.
 - These are validation numbers only. Phase 4 measures one-step and rollout error on the test episodes.
 
 **Next:** decide T3, then run `scripts/p3_structure.py` (identification and figures), then write docs/PART3_MODELS.md.
