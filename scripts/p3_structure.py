@@ -24,15 +24,19 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import numpy as np  # noqa: E402
-import torch  # noqa: E402
 
-from cartpole.data import SUPPORT_MIN_COUNT  # noqa: E402
-from cartpole.dataset import build  # noqa: E402
-from cartpole.params import load_params  # noqa: E402
-from cartpole.plotting import MODEL_COLORS, RES_DIR, WEIGHT_DIR, savefig, setup_style  # noqa: E402
-from cartpole.train import load_model  # noqa: E402
+from cartpole import npdyn as nd  # noqa: E402
+from cartpole.plotting import MODEL_COLORS, RES_DIR, savefig, setup_style  # noqa: E402
 
-torch.set_default_dtype(torch.float64)
+# Torch-free: models are evaluated in float64 through cartpole.npdyn, which reproduces
+# the torch models exactly (tests/test_npdyn.py), so this runs without torch or MuJoCo.
+SUPPORT_MIN_COUNT = 5        # = cartpole.data.SUPPORT_MIN_COUNT (that module imports MuJoCo)
+load_params = nd.load_params
+
+
+def load_model(name):
+    m = nd.load_model(name)
+    return m, m.ck
 
 
 def lstsq1(basis, y):
@@ -43,13 +47,12 @@ def lstsq1(basis, y):
 
 
 def identify(model, th: np.ndarray, p) -> dict:
-    with torch.no_grad():
-        s = {k: v.numpy() for k, v in model.structure(torch.as_tensor(th)).items()}
+    s = model.structure(th)
     a_in, r12 = lstsq1(np.cos(th), s["M12"])
     a_gr, rV = lstsq1(-p.g * np.sin(th), s["dV"])
     true = dict(M_tot=p.M_tot, mpl=p.mpl, J=p.J, b_x=p.b_x, b_th=p.b_th)
     est = dict(M_tot=float(s["M11"].mean()), mpl_inertial=a_in, J=float(s["M22"].mean()),
-               mpl_gravitational=a_gr, b_x=float(model.damping[0]), b_th=float(model.damping[1]))
+               mpl_gravitational=a_gr, b_x=float(model.d[0]), b_th=float(model.d[1]))
     rel = dict(M_tot=est["M_tot"] / true["M_tot"] - 1, mpl_inertial=a_in / p.mpl - 1,
                J=est["J"] / true["J"] - 1, mpl_gravitational=a_gr / p.mpl - 1)
     return dict(estimate=est, rel_error=rel, fit_rel_residual=dict(M12=r12, dV=rV),
@@ -79,9 +82,8 @@ def main():
     for r in info["runs"]:
         if r["kind"] != "delan":
             continue
-        model, ck = load_model(WEIGHT_DIR / f"{r['name']}.pt")
-        d = build(r["regime"], r["N"], r["seed"], dtype=torch.float64)
-        th = d["train"]["q"][:, 1].numpy()
+        model, ck = load_model(r["name"])
+        th = nd.train_set(ck)["q"][:, 1]
         ident[r["name"]] = dict(regime=r["regime"], N=r["N"], seed=r["seed"], **identify(model, th, p))
         # full circle (meaningful only where trained)
         ident[r["name"]]["full_circle"] = identify(model, np.linspace(-np.pi, np.pi, 721), p)["rel_error"]
@@ -118,12 +120,10 @@ def main():
     supA = None
     for (reg, N), st in styles.items():
         r = best_seed("delan", reg, N)
-        model, _ = load_model(WEIGHT_DIR / f"{r['name']}.pt")
-        with torch.no_grad():
-            s = {k: v.numpy() for k, v in model.structure(torch.as_tensor(grid)).items()}
+        model, ck = load_model(r["name"])
+        s = model.structure(grid)
         if (reg, N) == ("A", 20):
-            d = build("A", 20, r["seed"])
-            supA = theta_support(d["train"]["q"][:, 1].numpy(), bins)
+            supA = theta_support(nd.train_set(ck)["q"][:, 1], bins)
         for key, ax in zip(titles, axes.flat):
             ax.plot(grid, s[key], lw=2, label=f"DeLaN, regime {reg}, N={N} (seed {r['seed']})", **st)
     for key, ax in zip(titles, axes.flat):
@@ -149,7 +149,7 @@ def main():
                 rows = [r for r in info["runs"] if r["kind"] == kind and r["regime"] == reg and r["N"] == N]
                 if not rows:
                     continue
-                ck = torch.load(WEIGHT_DIR / f"{rows[0]['name']}.pt", weights_only=False)
+                ck = nd.load_checkpoint(nd.WEIGHT_DIR / f"{rows[0]['name']}.pt")
                 h = ck["history"]
                 ax.semilogy(h["step"], h["val"], ls=ls, color=MODEL_COLORS[kind], lw=1.8,
                             label=f"{kind.upper() if kind == 'mlp' else 'DeLaN'}, N={N} (seed 0)")

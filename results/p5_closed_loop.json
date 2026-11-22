@@ -1,0 +1,192 @@
+{
+  "config": {
+    "K": 512,
+    "H": 75,
+    "dt_plan": 0.02,
+    "sigma": 0.5,
+    "ar": 0.8,
+    "ess_lo": 0.1,
+    "ess_hi": 0.2,
+    "w_theta": 10.0,
+    "w_x": 1.0,
+    "x_scale": 1.0,
+    "xd_scale": 2.0,
+    "thd_scale": 5.0,
+    "w_u": 0.1,
+    "barrier": 1000.0,
+    "x_soft": 1.6,
+    "terminal": 10.0,
+    "w_energy": 0.0,
+    "gamma_ctrl": 0.0,
+    "lqr": false,
+    "lqr_in": [
+      0.3,
+      2.0
+    ],
+    "lqr_out": [
+      0.5,
+      4.0
+    ],
+    "gear": 10.0,
+    "mgl": 0.4905,
+    "J": 0.0344245927672956
+  },
+  "models": {
+    "analytical": {
+      "weights": null,
+      "n": 20,
+      "n_success": 20,
+      "success_rate": 1.0,
+      "wilson95": [
+        0.8388748419471806,
+        1.0
+      ],
+      "n_rail": 0,
+      "time_to_balance_median": 1.97,
+      "time_to_balance_iqr": [
+        1.935,
+        1.9925
+      ],
+      "max_abs_x_max": 0.9357860478233747,
+      "dmc_return_median": 848.0786952443771,
+      "ms_per_plan_mean": 13.114487552800256,
+      "failures": {},
+      "n_held_to_end": 20,
+      "wilson95_held": [
+        0.8388748419471806,
+        1.0
+      ],
+      "frac_time_balanced_after_first_median": 1.0
+    },
+    "thin_rod": {
+      "weights": null,
+      "n": 20,
+      "n_success": 20,
+      "success_rate": 1.0,
+      "wilson95": [
+        0.8388748419471806,
+        1.0
+      ],
+      "n_rail": 0,
+      "time_to_balance_median": 1.93,
+      "time_to_balance_iqr": [
+        1.8900000000000001,
+        1.96
+      ],
+      "max_abs_x_max": 0.9335707574904907,
+      "dmc_return_median": 851.7425047918371,
+      "ms_per_plan_mean": 11.701904911901329,
+      "failures": {},
+      "n_held_to_end": 20,
+      "wilson95_held": [
+        0.8388748419471806,
+        1.0
+      ],
+      "frac_time_balanced_after_first_median": 1.0
+    },
+    "DeLaN-B20": {
+      "weights": "delan_B20_s2_inv1",
+      "n": 20,
+      "n_success": 20,
+      "success_rate": 1.0,
+      "wilson95": [
+        0.8388748419471806,
+        1.0
+      ],
+      "n_rail": 0,
+      "time_to_balance_median": 1.97,
+      "time_to_balance_iqr": [
+        1.935,
+        1.9925
+      ],
+      "max_abs_x_max": 0.9360694153601098,
+      "dmc_return_median": 847.6203978679679,
+      "ms_per_plan_mean": 31.954390609899498,
+      "failures": {},
+      "n_held_to_end": 20,
+      "wilson95_held": [
+        0.8388748419471806,
+        1.0
+      ],
+      "frac_time_balanced_after_first_median": 1.0
+    },
+    "MLP-B20": {
+      "weights": "mlp_B20_s1",
+      "n": 20,
+      "n_success": 20,
+      "success_rate": 1.0,
+      "wilson95": [
+        0.8388748419471806,
+        1.0
+      ],
+      "n_rail": 0,
+      "time_to_balance_median": 1.99,
+      "time_to_balance_iqr": [
+        1.9475,
+        2.0
+      ],
+      "max_abs_x_max": 0.9334902456555638,
+      "dmc_return_median": 846.9669538410126,
+      "ms_per_plan_mean": 285.0888456751003,
+      "failures": {},
+      "n_held_to_end": 20,
+      "wilson95_held": [
+        0.8388748419471806,
+        1.0
+      ],
+      "frac_time_balanced_after_first_median": 1.0
+    },
+    "DeLaN-A20": {
+      "weights": "delan_A20_s0_inv1",
+      "n": 20,
+      "n_success": 20,
+      "success_rate": 1.0,
+      "wilson95": [
+        0.8388748419471806,
+        1.0
+      ],
+      "n_rail": 0,
+      "time_to_balance_median": 1.99,
+      "time_to_balance_iqr": [
+        1.95,
+        2.0
+      ],
+      "max_abs_x_max": 0.934299245159444,
+      "dmc_return_median": 847.5270767979946,
+      "ms_per_plan_mean": 31.110737327598986,
+      "failures": {},
+      "n_held_to_end": 20,
+      "wilson95_held": [
+        0.8388748419471806,
+        1.0
+      ],
+      "frac_time_balanced_after_first_median": 1.0
+    },
+    "MLP-A20": {
+      "weights": "mlp_A20_s2",
+      "n": 20,
+      "n_success": 20,
+      "success_rate": 1.0,
+      "wilson95": [
+        0.8388748419471806,
+        1.0
+      ],
+      "n_rail": 0,
+      "time_to_balance_median": 2.19,
+      "time_to_balance_iqr": [
+        2.0975,
+        3.375
+      ],
+      "max_abs_x_max": 1.5441093975263451,
+      "dmc_return_median": 638.0901231457999,
+      "ms_per_plan_mean": 280.3748976904011,
+      "failures": {},
+      "n_held_to_end": 8,
+      "wilson95_held": [
+        0.21880653237281705,
+        0.6134184992377469
+      ],
+      "frac_time_balanced_after_first_median": 0.6739542330521713
+    }
+  }
+}

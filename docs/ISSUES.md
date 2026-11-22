@@ -26,6 +26,13 @@ This is a running log of things that may be wrong, or that could bias the compar
 | P2 | Energy-drift test asymmetry (DeLaN can set D = 0) | Medium | In plan (Phase 4) |
 | A1 | q̈ labels off by 2×10⁻⁴ on rail-limit rows | Low | Moot (limit rows dropped) |
 | A2 | No model includes the rail limit | Medium | In plan (Phases 4–5) |
+| E1 | Phases 4–5 were run before T3 was decided | Medium | **Documented:** no ordering changes (evidence under T3); rerun takes ~5 min (P4) + ~1 h (P5) |
+| E2 | Phase 4–5 run torch-free (numpy port) and Phase 5 uses the analytical plant, not MuJoCo | Medium | **Mitigated:** port and plant checked against stored losses / MuJoCo data; confirm on MuJoCo before the report |
+| C1 | PLAN 5.1 replans at 100 Hz with a 0.02 s planning step | Low | **Fixed:** replan at 50 Hz, u held for 2 sim steps |
+| C2 | The information-theoretic control-cost term overwhelms the path cost | High | **Fixed:** weight γ = 0 (plain path-cost MPPI; effort penalised by 0.1u²) |
+| E3 | Damping is not identifiable from the data | Low | **Documented:** D = 0 used for drift (P2); learned D reported separately |
+| E4 | Valid-prediction time saturates on R_test | Low | **Documented:** VPT reported on E_test / S_test |
+| E5 | The PLAN success criterion counts balance-then-fall as success | High | **Mitigated:** "held to end" and time-balanced-after-first reported alongside |
 
 ---
 
@@ -134,7 +141,8 @@ softplus(0) = 0.69 would give a damping time constant of 1.6 s, against a true 2
 - **Effect on the MLP:** none at N ≥ 5, where every MLP run used the full 30 000 steps. Two MLP A1 runs stopped at about 10 000 steps, which looks like genuine over-fitting to one episode.
 - **Impact:** high. Early stopping inflates DeLaN's seed spread and its worst-case numbers, and it could change the data-efficiency curves and which seed is "best". The bias goes against DeLaN, so the current comparison is conservative, but it is not clean.
 - **Proposed fix:** drop early stopping for every run (both models), train the fixed 30 000-step budget, and keep the best-validation checkpoint. The validation set still selects the weights, so over-fitting is still guarded against. Only runs that actually stopped early change (8 DeLaN: A1 ×5, B5 s1–2, B20 s1; 2 MLP: A1 s0, s2). All other runs are identical under the new rule, because they never stopped early.
-- **Status:** open; waiting for the decision.
+- **New evidence (Phase 4, current weights):** T3 does not change any ordering. On 8 Phase 4 metrics (one-step all / upright / OOR-angle / OOR-velocity, rollout E_test and S_test at 1 s, drift "large" and "fast_rotating") × 5 configurations, the *worst* DeLaN seed beats the *best* MLP seed in 36 of 40 cells. The 4 exceptions are B5 upright one-step (1.0×), B5 rollouts on E and S (two early-stopped seeds), B20 S-rollout (tie, early-stopped seed 1) and A5 E-rollout (seed 1, which was *not* early-stopped: the 79× spread is genuine seed variance). T3 therefore affects seed-spread and worst-case claims only. The best-validation B20 seed used in Phase 5 (seed 2) ran the full 30 000 steps.
+- **Status:** open; waiting for the decision. Retraining needs torch (not available where Phases 4–5 were run). After retraining, rerun `python scripts/p4_eval.py` and `python scripts/p5_mppi.py eval` (delete `results/p5_runs/` first).
 
 ### P2. Fairness of the energy-drift test — Medium
 DeLaN can switch its damping off (D = 0); the MLP cannot. The effect is negligible here, because the true time constants are 2200 s and 17 000 s against a 10 s test, so over 10 s the true damping removes at most 0.9 % of the cart's kinetic energy and 0.12 % of the pole's (PART1 P5).
@@ -147,3 +155,42 @@ This came from the constraint solver's tolerance (PART1, check 4b). The rows are
 - **In plan:**
   - Phase 4: rollout windows that touch the limit are excluded.
   - Phase 5: MPPI uses a barrier at |x| > 1.6 m. Any episode where the limit becomes active counts as a failure ("cart left the rail").
+
+## Phase 4–5 issues
+
+### E1. Phases 4–5 were run before T3 was decided — Medium, documented
+- **Evidence:** PLAN Phase 4 lists "T3 decided" as an entry condition. Retraining needs torch, which was not installed on the machine that ran Phases 4–5, so they used the current weights.
+- **Impact:** medium. Seed spreads and worst-case values would change for the 10 early-stopped runs. Medians and orderings do not (see T3, new evidence).
+- **Action:** after T3 is resolved, rerun Phases 4–5. Both are scripted and resumable.
+
+### E2. Torch-free evaluation and an analytical plant in Phase 5 — Medium, mitigated
+- **Evidence:** Phases 4–5 run through `cartpole/npdyn.py`, which reads the `.pt` files without torch, and Phase 5 simulates the plant with the float64 analytical model + RK4 instead of dm_control.
+- **Checks** (`tests/test_npdyn.py`, all passing):
+  - every grid checkpoint reproduces its stored validation loss to ≤ 1.7×10⁻⁴ relative;
+  - the numpy analytical q̈ matches MuJoCo's `qacc` to 1.4×10⁻¹⁴ on all test rows, and one RK4 step matches MuJoCo's next state to 3.6×10⁻¹⁵;
+  - `dmc_initial_state(s)` reproduces dm_control's swing-up reset exactly (checked on the 10 R_test seeds);
+  - the analytical energy-drift floor equals MuJoCo's U-pool drift to every printed digit (5.1×10⁻⁹ … 1.0×10⁻⁶).
+- **Remaining gap:** the rail is not simulated, so |x| ≥ 1.8 m ends the episode as a rail failure. The success criterion forbids rail contact anyway, so success counts are unaffected, but the MuJoCo trajectory after contact would differ.
+- **Action:** before the report, rerun Phase 5 against dm_control on a machine with MuJoCo (swap the plant in `mppi.run_episode` for `env.step`) and confirm the success counts.
+
+### C1. PLAN 5.1 replans at 100 Hz with a 0.02 s planning step — Low, fixed
+- **Evidence:** with Δt_plan = 0.02 s and control at 100 Hz, "shift U by one step" moves the plan by 0.02 s while time advances by 0.01 s, so the warm start is off by half a step at every iteration.
+- **Fix:** replan at 50 Hz (= 1/Δt_plan) and hold u for 2 simulator steps. The plan's zero-order hold then matches execution exactly, and compute halves.
+
+### C2. The information-theoretic control-cost term overwhelms the path cost — High, fixed
+- **Evidence:** the term λ Σ_t u_tᵀσ⁻²ε_t enters the weights as exp(−Σ u σ⁻² ε), independent of λ. With σ = 0.5 and H = 75, it spans about ±40 nats, against the path-cost spread that the ESS-tuned λ normalises. It dominated the weights and pulled U towards 0. With it, the analytical model hit the rail on 2/2 tuning seeds; without it, it swung up in 1.9 s on 10/10.
+- **Fix:** a weight γ on this term (`MPPIConfig.gamma_ctrl`), set to 0. Control effort is still penalised through the 0.1u² stage cost. This is the common "path-cost MPPI" variant and was fixed before any learned model was run.
+
+### E3. Damping is not identifiable — Low, documented
+- **Evidence:** learned b_x = 6×10⁻⁶–2×10⁻⁵ vs a true 5×10⁻⁴ (results/p3_identification.json). Over 10 s episodes, the true damping changes energy by less than the learning error.
+- **Impact:** with learned D, DeLaN's drift is up to 23× worse. The drift test therefore reports D = 0 as the main setting (P2), with learned D in brackets.
+
+### E4. Valid-prediction time saturates on R_test — Low, documented
+- **Evidence:** on R_test (near hanging, stable dynamics) every model except MLP A1 reaches the 2 s cap.
+- **Action:** VPT is reported per pool, and only E_test and S_test discriminate.
+
+### E5. The PLAN success criterion counts balance-then-fall as success — High, mitigated
+- **Evidence:** "success = balanced (|θ| < 0.2, |θ̇| < 1) for 2 s within the episode, rail never touched" gives 20/20 for every model. Yet MLP-A20 falls again after the 2 s in 12 of 20 episodes and is balanced only 67 % of the time after first reaching upright (results/p5_closed_loop.json).
+- **Impact:** high. With the plan's criterion alone, the closed-loop comparison would report "no difference", hiding the only statistically supported closed-loop difference (held to end: DeLaN-A20 20/20 vs MLP-A20 8/20, disjoint Wilson intervals).
+- **Action:** both criteria are reported. The plan's criterion is kept as defined (fixed in advance), and the stricter ones are labelled as added after seeing the data. Worth raising at the instructor meeting.
+

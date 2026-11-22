@@ -20,9 +20,9 @@ The course project (IROB 2026, `IROB2026_Project_instructions (1) (1).pdf`) requ
 | 0 | Environment, repo skeleton | **Done** |
 | 1 | Analytical EL model, validated against MuJoCo | **Done**: [docs/PART1_EL.md](docs/PART1_EL.md) |
 | 2 | Datasets R / E / S / U, label audit, support definition | **Done**: [docs/PART2_DATA.md](docs/PART2_DATA.md) |
-| 3 | MLP + DeLaN, training | **Training done; wrap-up pending**: 34-run grid trained (results in [docs/RESULTS.md](docs/RESULTS.md)). Left: T3 decision, `p3_structure.py`, PART3 note |
-| 4 | Open-loop evaluation | — |
-| 5 | MPPI swing-up and balance; tuning can start now with the analytical model | — |
+| 3 | MLP + DeLaN, training | **Done except T3 + PART3 note**: grid trained; identification, learned-structure and training-curve figures done (RESULTS § Phase 3). Left: T3 decision (needs torch), PART3 note |
+| 4 | Open-loop evaluation | **Done on current weights**: [docs/PART4_EVAL.md](docs/PART4_EVAL.md), RESULTS § Phase 4. Rerun after T3 (~5 min, `scripts/p4_eval.py`) |
+| 5 | MPPI swing-up and balance | **Done on the analytical plant**: [docs/PART5_MPPI.md](docs/PART5_MPPI.md), RESULTS § Phase 5. Left: confirm on dm_control (ISSUES E2) |
 | 6 | Pre-evaluation demo | — |
 | 7 | Ablations, report, submission, viva prep | — |
 
@@ -93,10 +93,10 @@ Coordinates: q = (x, θ). **θ = 0 is upright** and θ = π is hanging. τ = [10
 | Run script: λ_inv selection + 34-run grid; resumable per run | [scripts/p3_train.py](scripts/p3_train.py) | **Done** |
 | Stage 1: λ_inv selection (6 DeLaN runs) | `results/p3_select.json` | **Done**: λ_inv = 1 (thin margin, ISSUES T2) |
 | Stage 2: main grid (34 runs) | `weights/`, `results/p3_training.json` | **Done** (T3 open: 3 DeLaN runs stopped early on a loss spike) |
-| Identification + learned-structure + training-curve figures | [scripts/p3_structure.py](scripts/p3_structure.py) | Written; not yet run (run after the T3 decision, since retrained runs change it) |
+| Identification + learned-structure + training-curve figures | [scripts/p3_structure.py](scripts/p3_structure.py) | **Done** on current weights (now torch-free via `cartpole/npdyn.py`); rerun after T3 |
 | Results recorded | [docs/RESULTS.md](docs/RESULTS.md) | **Done** for stages 1–2 (selection table, grid medians, per-seed table) |
 | Math note | [docs/PART3_MODELS.md](docs/PART3_MODELS.md) | After results (so every number comes from a results file) |
-| Issues found | [docs/ISSUES.md](docs/ISSUES.md) | P1 fixed; T1 mitigated; T2 decided; T3 open |
+| Issues found | [docs/ISSUES.md](docs/ISSUES.md) | P1 fixed; T1 mitigated; T2 decided; T3 open (Phase 4 shows it changes no ordering) |
 
 **Results so far** (full tables, with per-seed values, in [docs/RESULTS.md](docs/RESULTS.md) § Phase 3):
 - λ_inv = 1 was selected by a 12 % margin on one seed (ISSUES T2).
@@ -283,6 +283,8 @@ All of these are implemented and pass.
 | energy shaping (if needed) | add w_E (E_p − m_p g l)² if MPPI stalls at the bottom | E_p uses the known geometry, identical for all models, so it is part of the task. |
 
 **Fallback:** MPPI for swing-up, then LQR when |θ| < 0.3 and |θ̇| < 2, with hysteresis. The LQR gain comes from the **same model's** autograd Jacobian at upright, so every controller depends only on the model under test. The Bryson weights are the same as for pool S.
+
+**As implemented (differences from 5.1, with reasons):** replan at 50 Hz, not 100 Hz, so the warm-start shift equals one planning step (ISSUES C1); the information-theoretic control-cost term has weight γ = 0 (ISSUES C2); plain MPPI passed tuning, so the LQR hand-over is implemented but off; DeLaN runs inside the planner as an exact-to-2×10⁻⁷ lookup table in θ (PART5 §3).
 
 ### 5.2 Tuning protocol (no test-seed leakage)
 

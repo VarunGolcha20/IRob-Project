@@ -20,8 +20,16 @@ If ROS is sourced in the shell, run commands with `env -u PYTHONPATH ...`. Other
 |---|---|---|
 | 1. Analytical model vs MuJoCo | `python scripts/p1_validate.py` | `results/p1_validation.json`, `figures/p1_residuals.*`, `figures/p1_rk4_vs_mujoco.*` |
 | 2. Datasets (R, E, S, U pools) | `python scripts/p2_collect.py` | `data/*.npz`, `results/p2_dataset.json`, `figures/p2_coverage.*` |
+| 3. Training (needs torch) | `python scripts/p3_train.py` | `weights/*.pt`, `results/p3_training.json` |
+| 3. Identification, learned structure, curves | `python scripts/p3_structure.py` | `results/p3_identification.json`, `figures/p3_*` |
+| 4. Open-loop evaluation (~5 min) | `python scripts/p4_eval.py` (`--plots-only` to re-plot) | `results/p4_eval.json`, `figures/p4_*` |
+| 5. MPPI tuning (analytical, seeds 100–109) | `python scripts/p5_mppi.py tune` | `results/p5_tuning.csv`, `results/p5_mppi_config.json` |
+| 5. MPPI evaluation (6 models × 20 seeds; MLP ≈ 2.5 min/episode) | `python scripts/p5_mppi.py eval --workers 2` then `python scripts/p5_mppi.py plots` | `results/p5_runs/`, `results/p5_closed_loop.json`, `figures/p5_*` |
+| RESULTS.md tables | `python scripts/results_tables.py [p3\|p4\|p5]` | markdown on stdout |
 | known issues / risks | see [docs/ISSUES.md](docs/ISSUES.md) | — |
 | tests | `pytest -q tests/` | — |
+
+**Torch-free path.** Phases 3 (structure) to 5 need only numpy, scipy and matplotlib. [cartpole/npdyn.py](cartpole/npdyn.py) reads `weights/*.pt` without torch and reproduces the trained models in float64. `pytest -q tests/test_npdyn.py` checks it against the stored validation losses and the MuJoCo data. Training (`p3_train.py`) and data collection (`p1`, `p2`) still need torch / MuJoCo.
 
 ## Layout
 

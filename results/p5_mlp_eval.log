@@ -1,0 +1,46 @@
+MLP-B20      seed   1  success True  ttb 1.99  max|x| 0.89  return 846  148s
+MLP-B20      seed   0  success True  ttb 1.94  max|x| 0.90  return 849  148s
+MLP-B20      seed   2  success True  ttb 1.92  max|x| 0.93  return 850  144s
+MLP-B20      seed   3  success True  ttb 2.0  max|x| 0.87  return 853  146s
+MLP-B20      seed   4  success True  ttb 1.97  max|x| 0.93  return 847  142s
+MLP-B20      seed   5  success True  ttb 2.05  max|x| 0.89  return 844  145s
+MLP-B20      seed   6  success True  ttb 1.8900000000000001  max|x| 0.88  return 852  137s
+MLP-B20      seed   7  success True  ttb 1.99  max|x| 0.90  return 843  137s
+MLP-B20      seed   8  success True  ttb 1.97  max|x| 0.88  return 851  138s
+MLP-B20      seed   9  success True  ttb 2.0  max|x| 0.86  return 852  140s
+MLP-B20      seed  10  success True  ttb 2.0  max|x| 0.90  return 852  138s
+MLP-B20      seed  11  success True  ttb 1.92  max|x| 0.87  return 846  140s
+MLP-B20      seed  12  success True  ttb 1.96  max|x| 0.88  return 849  145s
+MLP-B20      seed  13  success True  ttb 1.95  max|x| 0.87  return 847  147s
+MLP-B20      seed  14  success True  ttb 2.04  max|x| 0.93  return 845  142s
+MLP-B20      seed  15  success True  ttb 1.93  max|x| 0.88  return 847  142s
+MLP-B20      seed  16  success True  ttb 2.02  max|x| 0.88  return 847  150s
+MLP-B20      seed  17  success True  ttb 1.99  max|x| 0.90  return 846  146s
+MLP-B20      seed  18  success True  ttb 2.08  max|x| 0.88  return 840  142s
+MLP-B20      seed  19  success True  ttb 2.0  max|x| 0.89  return 844  137s
+MLP-A20      seed   0  success True  ttb 2.09  max|x| 1.46  return 632  140s
+MLP-A20      seed   1  success True  ttb 3.39  max|x| 1.45  return 649  139s
+MLP-A20      seed   3  success True  ttb 3.39  max|x| 1.49  return 655  144s
+MLP-A20      seed   2  success True  ttb 3.45  max|x| 1.52  return 657  146s
+MLP-A20      seed   4  success True  ttb 2.08  max|x| 1.50  return 640  142s
+MLP-A20      seed   5  success True  ttb 2.12  max|x| 1.48  return 634  145s
+MLP-A20      seed   6  success True  ttb 2.14  max|x| 1.43  return 639  135s
+MLP-A20      seed   7  success True  ttb 2.21  max|x| 1.50  return 630  140s
+MLP-A20      seed   8  success True  ttb 2.02  max|x| 1.48  return 635  137s
+MLP-A20      seed   9  success True  ttb 2.17  max|x| 1.54  return 631  139s
+MLP-A20      seed  10  success True  ttb 3.37  max|x| 1.45  return 660  140s
+MLP-A20      seed  11  success True  ttb 3.43  max|x| 1.44  return 659  143s
+MLP-A20      seed  12  success True  ttb 3.42  max|x| 1.51  return 655  140s
+MLP-A20      seed  13  success True  ttb 2.1  max|x| 1.48  return 630  142s
+MLP-A20      seed  14  success True  ttb 2.24  max|x| 1.52  return 635  144s
+MLP-A20      seed  15  success True  ttb 3.31  max|x| 1.45  return 659  143s
+MLP-A20      seed  16  success True  ttb 3.3000000000000003  max|x| 1.52  return 663  138s
+MLP-A20      seed  17  success True  ttb 2.05  max|x| 1.51  return 636  140s
+MLP-A20      seed  18  success True  ttb 2.15  max|x| 1.50  return 627  135s
+MLP-A20      seed  19  success True  ttb 2.0300000000000002  max|x| 1.48  return 637  136s
+analytical   20/20  Wilson 0.84-1.00  ttb 1.97  rail 0  max|x| 0.94  return 848  13.1 ms/plan
+thin_rod     20/20  Wilson 0.84-1.00  ttb 1.93  rail 0  max|x| 0.93  return 852  11.7 ms/plan
+DeLaN-B20    20/20  Wilson 0.84-1.00  ttb 1.97  rail 0  max|x| 0.94  return 848  32.0 ms/plan
+MLP-B20      20/20  Wilson 0.84-1.00  ttb 1.99  rail 0  max|x| 0.93  return 847  285.1 ms/plan
+DeLaN-A20    20/20  Wilson 0.84-1.00  ttb 1.99  rail 0  max|x| 0.93  return 848  31.1 ms/plan
+MLP-A20      20/20  Wilson 0.84-1.00  ttb 2.19  rail 0  max|x| 1.54  return 638  280.4 ms/plan
