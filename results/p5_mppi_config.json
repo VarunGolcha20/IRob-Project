@@ -1,0 +1,50 @@
+{
+  "config": {
+    "K": 512,
+    "H": 75,
+    "dt_plan": 0.02,
+    "dt_control": 0.01,
+    "sigma": 0.5,
+    "ar": 0.8,
+    "ess_lo": 0.1,
+    "ess_hi": 0.2,
+    "w_theta": 10.0,
+    "w_x": 1.0,
+    "w_xd": 0.25,
+    "w_thd": 0.04,
+    "w_u": 0.1,
+    "barrier_w": 1000.0,
+    "barrier_x": 1.6,
+    "terminal_mult": 10.0,
+    "w_energy": 0.0,
+    "ctrl_cost": 0.0,
+    "use_lqr": true,
+    "lqr_in_th": 0.3,
+    "lqr_in_thd": 2.0,
+    "lqr_out_th": 0.6,
+    "lqr_out_thd": 4.0,
+    "bryson": [
+      1.0,
+      0.3,
+      2.0,
+      2.0
+    ]
+  },
+  "overrides": {},
+  "tuning_model": "analytical",
+  "tuning_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "n_success_on_tuning_seeds": 10,
+  "n_tuning_seeds": 10,
+  "note": "Chosen on analytical-model seeds 100-109 only. Log of every trial: results/p5_tuning.csv"
+}
